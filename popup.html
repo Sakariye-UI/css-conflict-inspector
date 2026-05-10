@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CSS Conflict Inspector</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+
+  <!-- ══ LEFT SIDEBAR RAIL ══ -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+        <circle cx="11" cy="11" r="7" stroke="white" stroke-width="2"/>
+        <path d="M20 20L17 17" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M8 11h6M11 8v6" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+    </div>
+
+    <!-- Inspector -->
+    <button class="nav-item active" id="nav-inspect" data-tooltip="Inspector">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none">
+        <path d="M21 21L15 15M17 11A6 6 0 115 11a6 6 0 0112 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <!-- Pick Element -->
+    <button class="nav-item" id="nav-pick" data-tooltip="Pick Element">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none">
+        <path d="M4 4l7.5 18 3-7 7-3L4 4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M14.5 14.5L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <!-- HAR File -->
+    <button class="nav-item" id="nav-har" data-tooltip="HAR File">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none">
+        <path d="M2 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M5 12c0-2 1.5-4 3-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M8 8c1-1.5 2.5-2 4-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M12 6v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="2"/>
+        <path d="M14.5 14.5c1 1 1.5 2.5 1.5 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M16 18.5c.5 1 1.5 2 2.5 2.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M19 12c0-2-1.5-4-3-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <!-- History -->
+    <button class="nav-item" id="nav-history" data-tooltip="Scan History">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+        <path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <!-- Site Scanner -->
+    <button class="nav-item" id="nav-scanner" data-tooltip="Site Scanner">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+        <path d="M2 12h3M19 12h3M12 2v3M12 19v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M5.64 5.64l2.12 2.12M16.24 16.24l2.12 2.12M5.64 18.36l2.12-2.12M16.24 7.76l2.12-2.12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <!-- Settings -->
+    <button class="nav-item" id="nav-settings" data-tooltip="Settings">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" stroke-width="2"/>
+      </svg>
+    </button>
+
+    <!-- Help -->
+    <button class="nav-item" id="nav-help" data-tooltip="How to use this tool">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+        <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+
+    <!-- Report -->
+    <button class="nav-item" id="nav-report" data-tooltip="Report feedback or new issue">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none">
+        <path d="M4 21V4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <path d="M4 4h12l-2 4 2 4H4" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
+    <div class="nav-spacer"></div>
+    <div class="nav-divider"></div>
+
+    <a class="nav-item nav-item-emoji"
+       href="https://docs.google.com/document/d/10EaCTkUgNKppNl65SK-bdLhAqR0KB0ZlBcipP6uJwSA/edit?tab=t.0"
+       target="_blank" data-tooltip="Full Guide (Google Doc)">
+      📖
+    </a>
+
+    <a class="nav-item"
+       href="https://klaviyo-internal-kb.zendesk.com/hc/en-us/articles/19174452748059-Troubleshooting-Signup-Form-affected-by-conflicting-CSS-or-JS"
+       target="_blank" data-tooltip="IKB Article">
+      <svg class="nav-icon" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+        <path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </a>
+  </nav>
+
+  <!-- ══ MAIN PANEL ══ -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <div class="header">
+      <div class="header-left">
+        <div class="header-title-group">
+          <span class="header-title">CSS Conflict Inspector</span>
+          <span class="header-sub">Klaviyo · v1.8.0</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="har-header-btn" class="btn-har-header" data-tooltip="Open HAR file tools">HAR File</button>
+
+        <button id="inspect-btn" class="btn-inspect" data-tooltip="Scan the page for CSS conflicts">Scan Page</button>
+      </div>
+    </div>
+
+    <!-- KB Article Bar -->
+    <div class="kb-bar">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" style="flex-shrink:0">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+        <path d="M12 8v4M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      If more troubleshooting steps are needed →
+      <a href="https://klaviyo-internal-kb.zendesk.com/hc/en-us/articles/19174452748059-Troubleshooting-Signup-Form-affected-by-conflicting-CSS-or-JS" target="_blank" class="kb-link">IKB Article</a>
+    </div>
+
+    <!-- ══ MOBILE PREVIEW BAR ══ -->
+    <div id="mob-bar" class="mob-bar">
+      <div class="mob-bar-left">
+        <svg class="mob-bar-icon" viewBox="0 0 24 24" fill="none">
+          <rect x="7" y="2" width="10" height="20" rx="2" stroke="currentColor" stroke-width="2"/>
+          <path d="M11 18h2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span class="mob-bar-label">Mobile Preview</span>
+        <div class="mob-device-pills">
+          <button class="mob-device-btn mob-device-active" data-device="ios">iOS</button>
+          <button class="mob-device-btn" data-device="android">Android</button>
+        </div>
+      </div>
+      <button class="mob-toggle-btn" id="mob-toggle-btn">Activate</button>
+    </div>
+    <div class="mob-error" id="mob-error" style="display:none"></div>
+
+    <!-- ══ ID SECTION — session identity ══ -->
+    <div id="id-section">
+      <div class="id-header" id="id-toggle">
+        <div class="id-status-dot id-dot-none" id="id-dot"></div>
+        <span class="id-header-label id-unset" id="id-label">ID · not set</span>
+        <svg class="section-chevron" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <button id="id-header-btn" class="id-identify-btn" style="display:none">Identify</button>
+      </div>
+      <div class="id-body" id="id-body"></div>
+    </div>
+
+    <!-- ══ RECENT SCANS — always collapsed ══ -->
+    <div id="history-wrap" style="display:none"></div>
+
+    <!-- ══ MANUAL CHECK — collapsible, always present ══ -->
+    <div class="collapsible-section" id="manual-section">
+      <div class="collapsible-header" id="manual-toggle-btn">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style="color:#635bff;flex-shrink:0">
+          <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+          <path d="M9 9h6M9 13h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span class="collapsible-title">Manual Check</span>
+        <span class="collapsible-sub">Enter a form ID to inspect directly</span>
+        <svg class="collapsible-chevron section-chevron" id="manual-chevron" viewBox="0 0 24 24" fill="none">
+          <path d="M9 18l6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="collapsible-body" id="manual-body">
+        <div class="manual-check-input-row">
+          <input type="text" id="manual-form-id" class="manual-input"
+            placeholder="Form ID e.g. V3shuh" maxlength="30" spellcheck="false" autocomplete="off"/>
+          <button id="manual-check-btn" class="btn-manual-check">Check</button>
+        </div>
+        <div class="manual-check-input-row manual-variation-row">
+          <input type="text" id="manual-variation-id" class="manual-input manual-input-variation"
+            placeholder="Variation ID (optional) e.g. 25600517" maxlength="40" spellcheck="false" autocomplete="off"/>
+        </div>
+        <div class="manual-check-action-row">
+          <button id="force-open-btn" class="btn-force-open" title="Force the form open">Force Open</button>
+          <button id="force-open-override-btn" class="btn-force-override" title="Bypass all targeting rules">Force Open (ignore rules)</button>
+        </div>
+        <div class="manual-check-action-row" style="margin-top:4px">
+          <button id="manual-test-submit-btn" class="btn-test-submit" data-form-id="" title="Fill the visible form with your test profile and submit it" style="width:100%">📧 Test Submit</button>
+        </div>
+        <p class="manual-check-hint">Form ID from the <code>data-testid</code> attribute or dashboard URL. Variation ID is optional.</p>
+        <div id="manual-check-result"></div>
+      </div>
+    </div>
+
+    <!-- Settings panel (toggle via sidebar gear icon) -->
+    <div id="section-settings" class="section-panel" style="display:none">
+      <div class="section-panel-header">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="color:#9ca3af;flex-shrink:0">
+          <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+          <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" stroke="currentColor" stroke-width="2"/>
+        </svg>
+        <span>Settings</span>
+        <span class="section-panel-sub">Preferences &amp; test profiles</span>
+      </div>
+      <div class="section-panel-body">
+
+        <!-- Theme Toggle -->
+        <div class="settings-section">
+          <div class="settings-section-label">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="2"/><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Theme
+          </div>
+          <div class="theme-toggle-group">
+            <button class="theme-opt" data-theme="dark" id="theme-dark-btn">🌙 Dark</button>
+            <button class="theme-opt" data-theme="light" id="theme-light-btn">☀️ Light</button>
+          </div>
+        </div>
+
+        <div class="settings-divider"></div>
+
+        <div class="settings-section">
+          <div class="settings-section-label">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" stroke-width="2"/><polyline points="22,6 12,13 2,6" stroke="currentColor" stroke-width="2"/></svg>
+            Test Emails
+          </div>
+          <div id="settings-emails-list" class="settings-list"></div>
+          <div class="settings-add-row">
+            <input type="email" id="settings-new-email" class="settings-input" placeholder="Add email address…"/>
+            <button id="settings-add-email-btn" class="settings-add-btn">+ Add</button>
+          </div>
+        </div>
+
+        <div class="settings-divider"></div>
+
+        <div class="settings-section">
+          <div class="settings-section-label">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="14" height="20" rx="2" ry="2" stroke="currentColor" stroke-width="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke="currentColor" stroke-width="2"/></svg>
+            Test Phone Numbers
+          </div>
+          <div id="settings-phones-list" class="settings-list"></div>
+          <div class="settings-add-row">
+            <input type="tel" id="settings-new-phone" class="settings-input" placeholder="Phone e.g. +447911123456…"/>
+            <button id="settings-add-phone-btn" class="settings-add-btn">+ Add</button>
+          </div>
+          <div class="settings-add-row" style="margin-top:3px">
+            <input type="text" id="settings-new-phone-country" class="settings-input" placeholder="Country name e.g. United Kingdom (auto-detected)"/>
+          </div>
+        </div>
+
+        <div class="settings-divider"></div>
+
+        <div class="settings-section">
+          <div class="settings-section-label">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Test Name
+          </div>
+          <div class="settings-name-row">
+            <input type="text" id="settings-first-name" class="settings-input" placeholder="First name (default: Klaviyo)"/>
+            <input type="text" id="settings-last-name"  class="settings-input" placeholder="Last name (default: Test)"/>
+          </div>
+          <div class="settings-name-hint">Fills first name, last name, and full name fields during Test Submit.</div>
+        </div>
+
+        <div class="settings-divider"></div>
+
+        <div class="settings-section">
+          <div class="settings-section-label">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" stroke="currentColor" stroke-width="2"/><line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="2"/><line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="2"/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2"/></svg>
+            Date of Birth
+          </div>
+          <div class="settings-add-row">
+            <input type="text" id="settings-dob" class="settings-input" placeholder="MM/DD/YYYY (default: 01/01/2000)"/>
+          </div>
+          <div class="settings-name-hint">Used to autofill date of birth fields during Test Submit.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Site Scanner panel -->
+    <div id="section-scanner" class="section-panel" style="display:none">
+      <div class="section-panel-header">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="color:#9ca3af;flex-shrink:0">
+          <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/>
+          <path d="M2 12h3M19 12h3M12 2v3M12 19v3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M5.64 5.64l2.12 2.12M16.24 16.24l2.12 2.12M5.64 18.36l2.12-2.12M16.24 7.76l2.12-2.12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span>Site Scanner</span>
+        <span class="section-panel-sub">All Klaviyo forms on this site</span>
+        <button id="scanner-scan-btn" class="id-identify-btn" style="margin-left:auto;background:var(--accent);color:#fff;border-color:var(--accent);">Scan</button>
+      </div>
+      <div class="section-panel-body" id="scanner-body">
+        <div class="scanner-idle">
+          <div class="idle-icon" style="font-size:28px">🌐</div>
+          <p>Navigate to a customer's site, then click <strong>Scan</strong> to find all their Klaviyo forms.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Help / Guide panel -->
+    <div id="section-help" class="section-panel" style="display:none">
+      <div class="section-panel-header">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="color:#9ca3af;flex-shrink:0">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/>
+          <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span>How to use this tool</span>
+        <span class="section-panel-sub">Features, FAQs &amp; error guide</span>
+      </div>
+      <div class="section-panel-body help-body">
+
+        <!-- ── JUMP NAV — sticky, no article link ── -->
+        <div class="help-sticky-header">
+          <div class="help-jumpnav">
+            <a class="help-jump" href="#help-features">✨ Features</a>
+            <a class="help-jump" href="#help-faqs">❓ FAQs</a>
+            <a class="help-jump" href="#help-errors">🔴 Errors</a>
+          </div>
+        </div>
+
+        <!-- ── FEATURES ── -->
+        <div class="help-section-label" id="help-features">✨ Features</div>
+
+        <div class="help-block">
+          <div class="help-feature-title">🔍 Scan Page</div>
+          <div class="help-feature-sub">Inspect the active tab for anything breaking a Klaviyo component</div>
+          <ul class="help-list">
+            <li>Detects <code>display:none</code>, <code>visibility:hidden</code>, <code>opacity:0</code>, <code>overflow:hidden</code>, <code>max-height:0</code>, <code>pointer-events:none</code> and <code>transform</code> conflicts</li>
+            <li>Traces every issue back to the exact stylesheet, selector, and line causing it</li>
+            <li>Shows a <strong>confidence score (1–5)</strong> so you know which issue to fix first</li>
+            <li>Recognises Shopify Dawn, Elementor, Divi, Tailwind, Bootstrap and more — names the theme and suggests the exact fix</li>
+            <li>Detects z-index stacking issues, script load problems, localStorage blocks, and consent manager (CMP) conflicts</li>
+            <li>Generates a ready-to-send customer message with the issue and fix pre-written</li>
+          </ul>
+          <div class="help-warn">⚠️ <strong>Won't work if:</strong> Klaviyo's script tag isn't on the page, the page is a <code>file://</code> URL, or a strict CSP blocks content scripts</div>
+        </div>
+
+        <div class="help-block">
+          <div class="help-feature-title">🖱️ Pick Element</div>
+          <div class="help-feature-sub">Click any element on the page to inspect it directly</div>
+          <ul class="help-list">
+            <li>Hover over any element — it highlights in purple</li>
+            <li>If you click a <strong>Klaviyo component</strong> (form, embed, flyout), the tool runs the full CSS conflict scan on that component and shows the same detailed output as Scan Page</li>
+            <li>If you click a <strong>generic element</strong>, the tool runs a CSS visibility check on that element and its ancestors, showing any <code>display</code>, <code>visibility</code>, <code>opacity</code>, <code>overflow</code>, or <code>pointer-events</code> issues found</li>
+            <li>Useful when you already know which element looks broken and want to skip the full scan</li>
+          </ul>
+          <div class="help-warn">⚠️ <strong>Won't work if:</strong> The element is inside a cross-origin iframe</div>
+        </div>
+
+        <div class="help-block">
+          <div class="help-feature-title">📋 Manual Check</div>
+          <div class="help-feature-sub">Check a specific form by its ID</div>
+          <ul class="help-list">
+            <li>Enter a <strong>Form ID</strong> (from the dashboard URL or <code>data-testid</code>) and click Check</li>
+            <li>Optionally enter a <strong>Variation ID</strong> to test a specific A/B variant</li>
+            <li>Runs the same CSS conflict detection as Scan Page but targets that one form</li>
+          </ul>
+        </div>
+
+        <div class="help-block">
+          <div class="help-feature-title">🚀 Force Open &amp; Force Open (Ignore Rules)</div>
+          <div class="help-feature-sub">Open a form that isn't showing — bypass targeting or triggers</div>
+          <ul class="help-list">
+            <li><strong>Force Open</strong> — signals Klaviyo to open the form as if the trigger fired. Respects geo, cookie, and targeting rules</li>
+            <li><strong>Force Open (Ignore Rules)</strong> — clears Klaviyo's localStorage, reloads the page, and forces the form open regardless of targeting. Use this when the form never appears even for new visitors</li>
+            <li>If a <strong>Variation ID</strong> is entered, only that A/B variant is shown</li>
+          </ul>
+          <div class="help-warn">⚠️ <strong>Won't work if:</strong> The Klaviyo onsite script isn't on the page, or the account has strict geo restrictions that block the API response entirely</div>
+        </div>
+
+        <div class="help-block">
+          <div class="help-feature-title">🧪 Test Submit</div>
+          <div class="help-feature-sub">Fill and submit a form with your test profile to confirm the API call succeeds</div>
+          <ul class="help-list">
+            <li>Automatically fills <strong>email, phone, first name, last name, and date of birth</strong> fields using the test profile set in Settings</li>
+            <li>Name defaults to <strong>Klaviyo Test</strong> — change it in Settings under "Test Name"</li>
+            <li><strong>Date of birth</strong> defaults to <code>01/01/2000</code> — update it in Settings. The tool recognises <code>birthday</code>, <code>date_of_birth</code>, <code>dob</code>, <code>birthdate</code>, and <code>MM/DD/YYYY</code> fields automatically</li>
+            <li>Clicks the form's submit button and intercepts the Klaviyo API call</li>
+            <li>Reports whether the subscription went through (success) or failed (with the error reason)</li>
+            <li>Useful for confirming a form submits correctly end-to-end after fixing a CSS conflict</li>
+          </ul>
+          <div class="help-warn">⚠️ <strong>Won't work if:</strong> The form has multi-step flows the tool can't navigate, or the site blocks synthetic events with <code>isTrusted</code> checks on embedded forms</div>
+        </div>
+
+        <div class="help-block">
+          <div class="help-feature-title">🌐 Site Scanner</div>
+          <div class="help-feature-sub">See every Klaviyo form on a merchant's account</div>
+          <ul class="help-list">
+            <li>Fetches all active forms for the account from Klaviyo's API using the company ID found on the page</li>
+            <li>Shows form name, ID, type (modal / flyout / embed), and which pages it targets</li>
+            <li>Flags <strong>snippet-placed</strong> forms — those embedded directly in the page HTML rather than shown via Klaviyo's trigger system</li>
+            <li>Force Open and Test Submit are available for each form directly from the scanner</li>
+          </ul>
+          <div class="help-warn">⚠️ <strong>Won't work if:</strong> Klaviyo's script tag isn't on the page, the account has no active forms, or geo-IP filtering means forms for other regions aren't returned</div>
+        </div>
+
+        <div class="help-block">
+          <div class="help-feature-title">🕒 Scan History</div>
+          <div class="help-feature-sub">Review recent scans and HAR captures</div>
+          <ul class="help-list">
+            <li><strong>Recent Scans</strong> — stores the last <strong>5 page scans</strong>. Each entry shows the URL, timestamp, issue count, and the full scan results. Click any entry to re-open it</li>
+            <li><strong>HAR Captures</strong> — stores the last <strong>10 HAR recordings</strong>. Each entry shows the URL, timestamp, and number of network entries captured. Download the file from here at any time</li>
+            <li>Both tabs persist across popup opens and browser restarts until you clear the extension's storage</li>
+            <li>Scans are saved automatically every time you run Scan Page, Manual Check, or Pick Element on a Klaviyo component</li>
+          </ul>
+        </div>
+
+        <div class="help-block">
+          <div class="help-feature-title">📱 Mobile Preview</div>
+          <div class="help-feature-sub">Emulate a real iPhone or Android device to see how the form renders on mobile</div>
+          <ul class="help-list">
+            <li>Uses Chrome's built-in device emulation to set exact screen dimensions, pixel ratio, and User-Agent</li>
+            <li>Choose <strong>iOS</strong> (iPhone 14, 390×844, DPR 3) or <strong>Android</strong> (Pixel 7, 412×915, DPR 2.625)</li>
+            <li>Emulation stays active even after closing the panel — toggle it off or close the tab to stop</li>
+            <li>Because the User-Agent changes, Klaviyo may serve different CSS or variants — scans while mobile is active reflect what a real mobile visitor would see</li>
+          </ul>
+          <div class="help-warn">⚠️ <strong>Won't work if:</strong> Chrome DevTools is open on the same tab — Chrome only allows one debugger at a time. Close DevTools first, then activate Mobile Preview</div>
+        </div>
+
+        <div class="help-block">
+          <div class="help-feature-title">🚩 Report</div>
+          <div class="help-feature-sub">Send feedback or log a new CSS conflict pattern directly from the tool</div>
+          <ul class="help-list">
+            <li>Select an event from a recent scan to include its context automatically</li>
+            <li>Choose a report type: <strong>New Error</strong> (pattern not detected), <strong>False Positive</strong> (flagged issue that isn't actually a problem), or <strong>Other Feedback</strong></li>
+            <li>Add a comment describing what you saw, then submit — it goes straight to the development queue</li>
+          </ul>
+        </div>
+
+        <div class="help-block">
+          <div class="help-feature-title">👁️ Preview Fix</div>
+          <div class="help-feature-sub">Temporarily override a conflicting CSS property to see if the form appears</div>
+          <ul class="help-list">
+            <li>Appears next to detected issues after a scan</li>
+            <li>Click to disable the conflicting property live on the page — if the form appears, you've found the cause</li>
+            <li>Click <strong>Restore</strong> to put it back</li>
+          </ul>
+          <div class="help-warn">⚠️ <strong>Not available for</strong> zero-dimension issues — the fix depends on what's setting the size, which varies per theme</div>
+        </div>
+
+        <div class="help-block">
+          <div class="help-feature-title">📡 HAR File</div>
+          <div class="help-feature-sub">Request a network trace from a customer or record one yourself</div>
+          <ul class="help-list">
+            <li><strong>Record Your Session</strong> — starts a live HAR capture on the active tab. Reproduce the issue, then click <strong>Stop &amp; Export</strong> to save. The file is copied to your clipboard and stored under Scan History → HAR Captures for later reference</li>
+            <li><strong>Customer Macro</strong> — a pre-written message with step-by-step HAR instructions for Chrome, Firefox, and Safari. Click <strong>Copy Macro</strong> and paste directly into Zendesk — screenshots for each browser are embedded and appear inline in the ticket automatically</li>
+            <li>HAR captures are saved per session and accessible any time under <strong>Scan History → HAR Captures</strong></li>
+          </ul>
+          <div class="help-warn">⚠️ <strong>Won't work if:</strong> Chrome DevTools is already open on the tab — Chrome only allows one debugger at a time. Close DevTools first, then start recording</div>
+        </div>
+
+        <!-- ── FAQs ── -->
+        <div class="help-section-label" id="help-faqs">❓ FAQs</div>
+
+        <div class="help-faq">
+          <div class="help-faq-q">Why does it say "0 forms found" after scanning?</div>
+          <div class="help-faq-a">Klaviyo loads form HTML asynchronously after its SDK initialises. If you scan immediately after page load the form may not be in the DOM yet. The tool retries once automatically — if it still shows nothing, wait a few seconds and scan again.</div>
+        </div>
+
+        <div class="help-faq">
+          <div class="help-faq-q">Why does the Preview Fix button not appear on some issues?</div>
+          <div class="help-faq-a">Zero-dimension issues (the element has no width or height) don't have a single property to override — the fix depends on what's setting the size in that theme. Use the source file and selector info shown to find and edit it manually.</div>
+        </div>
+
+        <div class="help-faq">
+          <div class="help-faq-q">Does using this tool affect real customers?</div>
+          <div class="help-faq-a">No. Scan Page and Pick Element are read-only. Force Open only affects the tab you're on. Test Submit uses your test email/phone from Settings — it does create a real profile for that address, which is exactly what you want when testing. Use a dedicated Klaviyo test email and phone number so the profile stays easy to identify.</div>
+        </div>
+
+        <div class="help-faq">
+          <div class="help-faq-q">What does the confidence score mean?</div>
+          <div class="help-faq-a">It's a 1–5 rating of how likely this CSS issue is the actual cause of the form being hidden. Score 5 = almost certainly the cause (e.g. <code>display:none !important</code> on the form root). Score 1–2 = a potential factor but probably not the only cause. Start with the highest score.</div>
+        </div>
+
+        <div class="help-faq">
+          <div class="help-faq-q">Why does Test Submit need two tries sometimes?</div>
+          <div class="help-faq-a">On SMS forms, Klaviyo's country picker updates its React state asynchronously. The tool detects this and retries automatically — filling email and phone on the first attempt, then re-filling if the country picker wasn't ready yet. Names are only filled on the first step to avoid duplicating entries on multi-step forms.</div>
+        </div>
+
+        <div class="help-faq">
+          <div class="help-faq-q">The scan found issues but the form still looks fine — why?</div>
+          <div class="help-faq-a">Some CSS properties flagged are on parent containers, not the form itself. If the form is a position:fixed flyout it can escape overflow clipping. The confidence score helps — low-confidence warnings may not actually be hiding the form.</div>
+        </div>
+
+        <div class="help-faq">
+          <div class="help-faq-q">Can I change the name used when Test Submit fills name fields?</div>
+          <div class="help-faq-a">Yes. Open Settings and scroll to the "Test Name" section. Enter the first and last name you want used — defaults are <strong>Klaviyo</strong> (first) and <strong>Test</strong> (last). Leave a field blank to skip filling that name on the form.</div>
+        </div>
+
+        <div class="help-faq">
+          <div class="help-faq-q">Does Mobile Preview affect how the scan results look?</div>
+          <div class="help-faq-a">Yes — when Mobile Preview is active, Klaviyo may serve different form variants or CSS based on the spoofed User-Agent. This means scan results reflect what a real mobile visitor would see, which can surface mobile-specific CSS conflicts that don't appear on desktop.</div>
+        </div>
+
+        <div class="help-faq">
+          <div class="help-faq-q">What does "snippet-placed" mean in Site Scanner?</div>
+          <div class="help-faq-a">Snippet-placed forms are embedded directly in the page HTML using Klaviyo's embed code, rather than being triggered by Klaviyo's popup system. They don't respond to Force Open. If a snippet-placed form isn't showing, the issue is in the page HTML or the CSS around the embed container — use Scan Page or Pick Element to inspect it directly.</div>
+        </div>
+
+        <div class="help-faq">
+          <div class="help-faq-q">Where do my recorded HAR captures go?</div>
+          <div class="help-faq-a">They're saved automatically to <strong>Scan History → HAR Captures</strong>. Each entry shows the URL, timestamp, and number of network entries recorded. They persist until you clear the extension's storage.</div>
+        </div>
+
+        <div class="help-faq">
+          <div class="help-faq-q">Can I record a HAR file and keep working on the same tab?</div>
+          <div class="help-faq-a">Yes. Once recording starts you can close the extension panel and use the tab normally. Reopen the panel and go to the HAR File section, then click <strong>Stop &amp; Export</strong> when you're ready. The recording continues in the background.</div>
+        </div>
+
+        <!-- ── ERRORS ── -->
+        <div class="help-section-label" id="help-errors">🔴 Error Reference</div>
+
+        <div class="help-error">
+          <div class="help-error-title">⚠️ Klaviyo not detected on this page</div>
+          <div class="help-error-body">The Klaviyo onsite script (<code>company_id=…</code>) wasn't found in the page's script tags. Navigate to the merchant's live site and make sure the Klaviyo snippet is installed. Won't work on the Klaviyo dashboard itself.</div>
+        </div>
+
+        <div class="help-error">
+          <div class="help-error-title">⚠️ Form not found in DOM</div>
+          <div class="help-error-body">The form ID entered doesn't match any element in the page's DOM. Either the form hasn't loaded yet (try Force Open first), the ID is from the wrong account, or Klaviyo rendered it with a different DOM ID than the dashboard shows.</div>
+        </div>
+
+        <div class="help-error">
+          <div class="help-error-title">⚠️ Fields filled but no API call detected</div>
+          <div class="help-error-body">The tool filled the form fields and clicked submit, but didn't detect a call to Klaviyo's subscription API within 30 seconds. This usually means the form's own validation blocked the submission (e.g. the email was already subscribed, or a CAPTCHA fired). Try submitting the form manually while the tool watches — it will detect and report the API result.</div>
+        </div>
+
+        <div class="help-error">
+          <div class="help-error-title">⚠️ Could not fetch forms from Klaviyo's API</div>
+          <div class="help-error-body">The Site Scanner couldn't load the account's form list. This can happen if the Klaviyo API is temporarily unavailable, the account has strict geo restrictions, or the company ID on the page doesn't match an active Klaviyo account.</div>
+        </div>
+
+        <div class="help-error">
+          <div class="help-error-title">⚠️ Signal sent but form was not detected after reload</div>
+          <div class="help-error-body">Force Open (Ignore Rules) reloaded the page and sent the open signal, but the form didn't appear in the DOM. The most common causes: the account has geo-IP targeting that excludes your current location, the form is paused or archived, or the Klaviyo SDK failed to load after reload.</div>
+        </div>
+
+        <div class="help-error">
+          <div class="help-error-title">⚠️ This number is invalid</div>
+          <div class="help-error-body">Klaviyo rejected the phone number during Test Submit. This usually means the country code doesn't match the number format (e.g. a US number with a UK country code set). Check the phone number in Settings — it should be in full E.164 format, e.g. <code>+14155552671</code>.</div>
+        </div>
+
+        <div class="help-error">
+          <div class="help-error-title">⚠️ Could not start Mobile Preview — close DevTools first</div>
+          <div class="help-error-body">Chrome only allows one debugger connection per tab. If Chrome DevTools is open on the active tab, Mobile Preview can't attach. Close DevTools (press <code>F12</code> or <code>⌥⌘I</code>), then try activating Mobile Preview again.</div>
+        </div>
+
+        <div class="help-error">
+          <div class="help-error-title">⚠️ Could not start HAR recording — make sure DevTools is closed on this tab</div>
+          <div class="help-error-body">HAR recording uses Chrome's debugger API, which conflicts with open DevTools. Close DevTools on the active tab (<code>F12</code> or <code>⌥⌘I</code>) and try again. If Mobile Preview is also active, deactivate it first — both features share the same debugger connection.</div>
+        </div>
+
+        <div class="help-error">
+          <div class="help-error-title">⚠️ Recording stopped — no data captured</div>
+          <div class="help-error-body">The HAR export returned empty. This usually means the recording started after the network activity you wanted to capture. Start the recording first, then trigger the issue on the page, then stop. If the page needs a full reload to reproduce the issue, begin recording before refreshing.</div>
+        </div>
+
+      </div><!-- /.help-body -->
+    </div><!-- /#section-help -->
+
+    <!-- Report panel (toggle via sidebar flag icon) -->
+    <div id="section-report" class="section-panel" style="display:none">
+      <div class="section-panel-header">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="color:#9ca3af;flex-shrink:0">
+          <path d="M4 21V4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M4 4h12l-2 4 2 4H4" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+        </svg>
+        <span>Report</span>
+        <span class="section-panel-sub">Submit feedback, errors &amp; suggestions</span>
+      </div>
+      <div class="section-panel-body">
+
+        <!-- Step 1: Report type -->
+        <div class="rpt-group">
+          <div class="rpt-label">What are you reporting?</div>
+          <div class="rpt-pills" id="rpt-type-row">
+            <button class="rpt-pill" data-rtype="false_positive" type="button">False positive</button>
+            <button class="rpt-pill rpt-pill-active" data-rtype="new_error" type="button">New error</button>
+            <button class="rpt-pill" data-rtype="improvement" type="button">Improvement</button>
+            <button class="rpt-pill" data-rtype="ui_feedback" type="button">UI feedback</button>
+          </div>
+        </div>
+
+        <!-- Step 2: Recent events -->
+        <div class="rpt-group">
+          <div class="rpt-label">Attach a recent event <span class="rpt-opt">optional</span></div>
+          <div id="rpt-events-list">
+            <div class="rpt-empty" id="rpt-no-events">Run a scan first to see recent events here.</div>
+          </div>
+        </div>
+
+        <!-- Step 3: Notes -->
+        <div class="rpt-group">
+          <div class="rpt-label">Notes <span class="rpt-opt">optional · 280 chars</span></div>
+          <textarea id="rpt-desc" class="rpt-textarea"
+                    placeholder="What did you expect vs what happened?"
+                    maxlength="280" rows="3"></textarea>
+          <div class="rpt-charcount"><span id="rpt-char-n">0</span>/280</div>
+        </div>
+
+        <!-- Submit -->
+        <button class="rpt-submit" id="rpt-submit" type="button">Submit report</button>
+        <div class="rpt-success" id="rpt-success" style="display:none">✓ Submitted — thanks for the feedback!</div>
+
+      </div>
+    </div><!-- /#section-report -->
+
+    <!-- ══ PICK ELEMENT PANEL ══ -->
+    <div id="section-pick" class="section-panel" style="display:none">
+      <div class="section-panel-header">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="color:#9ca3af;flex-shrink:0">
+          <path d="M4 4l7.5 18 3-7 7-3L4 4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M14.5 14.5L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span>Pick Element</span>
+        <span class="section-panel-sub">Click any element on the page to inspect it</span>
+      </div>
+      <div class="section-panel-body" id="pick-panel-body">
+        <!-- Action bar: only visible when no result is showing -->
+        <div class="pick-panel-actions" id="pick-panel-actions">
+          <div class="pick-idle-state">
+            <div class="pick-idle-icon">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                <path d="M4 4l7.5 18 3-7 7-3L4 4z" stroke="#635bff" stroke-width="1.8" stroke-linejoin="round"/>
+                <path d="M14.5 14.5L20 20" stroke="#635bff" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <p class="pick-idle-text">Hover over any element on the page to inspect it. If it's part of a Klaviyo form, you'll see the full conflict report and can test submit.</p>
+            <button id="pick-btn" class="btn-pick-panel-full">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                <path d="M4 4l7.5 18 3-7 7-3L4 4z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M14.5 14.5L20 20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+              Pick Element
+            </button>
+          </div>
+        </div>
+        <!-- Result area: filled when a pick result arrives -->
+        <div id="pick-result-area" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- ══ HAR FILE PANEL ══ -->
+    <div id="section-har" class="section-panel" style="display:none">
+      <div class="section-panel-header">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="color:#9ca3af;flex-shrink:0">
+          <circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="2"/>
+          <path d="M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M5 12c0-2 1.5-4 3-4M8 8c1-1.5 2.5-2 4-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <path d="M19 12c0-2-1.5-4-3-4M16 8c-1-1.5-2.5-2-4-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span>HAR File</span>
+        <span class="section-panel-sub">Request &amp; record network traces</span>
+      </div>
+      <div class="section-panel-body">
+
+        <!-- Record session section -->
+        <div class="har-section-label">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+          Record Your Session
+        </div>
+        <p class="har-section-sub">Record your own browser session and capture a HAR file to share with the team or analyse using a third-party tool.</p>
+        <button class="har-record-btn" id="har-record-btn">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/>
+            <circle cx="12" cy="12" r="3" fill="currentColor"/>
+          </svg>
+          Start Recording
+        </button>
+        <div class="har-record-status" id="har-record-status" style="display:none"></div>
+
+        <div class="har-divider"></div>
+
+        <!-- Macro section -->
+        <div class="har-section-label" style="display:flex;align-items:center;justify-content:space-between;">
+          <span style="display:flex;align-items:center;gap:5px;">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" stroke-width="2"/><polyline points="22,6 12,13 2,6" stroke="currentColor" stroke-width="2"/></svg>
+            Customer Macro
+          </span>
+          <button class="har-copy-btn" id="har-copy-btn" style="margin:0;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+              <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" stroke-width="2"/>
+              <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" stroke="currentColor" stroke-width="2"/>
+            </svg>
+            Copy Macro
+          </button>
+        </div>
+        <p class="har-section-sub">Copy this and send it to the customer to request their HAR file.</p>
+        <div class="har-macro-box" id="har-macro-box"></div>
+
+      </div>
+    </div>
+
+    <!-- ══ HISTORY PANEL ══ -->
+    <div id="section-history" class="section-panel" style="display:none">
+      <div class="section-panel-header">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="color:#9ca3af;flex-shrink:0">
+          <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <span>Scan History</span>
+        <span class="section-panel-sub">Recent page scans &amp; HAR captures</span>
+      </div>
+      <div class="section-panel-body" id="history-panel-body">
+
+        <!-- Tab bar -->
+        <div class="hist-tab-bar">
+          <button class="hist-tab hist-tab-active" id="hist-tab-scans">Page Scans</button>
+          <button class="hist-tab" id="hist-tab-har">HAR Captures</button>
+        </div>
+
+        <!-- Page scans list -->
+        <div id="hist-scans-list">
+          <div class="hist-panel-empty">No scans yet — run <strong>Scan Page</strong> to get started.</div>
+        </div>
+
+        <!-- HAR captures list -->
+        <div id="hist-har-list" style="display:none">
+          <div class="hist-panel-empty">No HAR captures yet — use the HAR File section to record a session.</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Hidden legacy details — kept for popup.js compatibility -->
+    <details id="manual-check-wrap" style="display:none">
+      <summary class="manual-check-toggle"></summary>
+      <div class="manual-check-body"></div>
+    </details>
+    <details id="settings-wrap" style="display:none">
+      <summary class="settings-toggle"></summary>
+      <div class="settings-body"></div>
+    </details>
+
+    <!-- Main content -->
+    <div id="content">
+      <div class="idle-state">
+        <div class="idle-icon">🔍</div>
+        <p>Navigate to a customer's site, then click <strong>Scan Page</strong> to detect what's breaking their Klaviyo form.</p>
+      </div>
+    </div>
+
+  </div><!-- /.main -->
+
+  <script src="popup.js"></script>
+  <script src="ui.js"></script>
+</body>
+</html>
