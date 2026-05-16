@@ -910,6 +910,69 @@
       });
     }
 
+    // ── Focus-visible ring check ──────────────────────────────
+    issues.push(...checkFocusVisibleOutline(btn));
+
+    return issues;
+  }
+
+  // ── 7c. FOCUS-VISIBLE OUTLINE DETECTION ────────────────────
+  // Detects a browser-default or theme :focus-visible ring on
+  // Klaviyo form buttons. This only activates when the button is
+  // focused (e.g. after clicking the close button), which is why
+  // static CSS scans miss it — the outline is invisible at rest.
+  // Real-world example: customer sets the close button background
+  // to transparent, but a browser/theme rule adds a circle outline
+  // via `button:focus-visible { outline: auto }`.
+
+  function checkFocusVisibleOutline(btn) {
+    const issues = [];
+    const prev = document.activeElement;
+    try {
+      btn.focus({ preventScroll: true });
+
+      const cs = window.getComputedStyle(btn);
+      const outlineStyle  = cs.outlineStyle;
+      const outlineWidth  = parseFloat(cs.outlineWidth) || 0;
+      const outlineColor  = (cs.outlineColor || '').replace(/\s/g, '');
+      const boxShadow     = cs.boxShadow;
+
+      const INVISIBLE = new Set(['none', 'transparent', 'rgba(0,0,0,0)']);
+      const hasOutline   = outlineStyle !== 'none' && outlineWidth > 0 && !INVISIBLE.has(outlineColor);
+      const hasBoxShadow = boxShadow && boxShadow !== 'none';
+
+      if (hasOutline || hasBoxShadow) {
+        // Only flag if not intentionally set inline by the customer
+        const inlineOutline   = btn.style.outline || btn.style.outlineStyle;
+        const inlineBoxShadow = btn.style.boxShadow;
+
+        if (!inlineOutline && !inlineBoxShadow) {
+          const prop = hasOutline ? 'outline' : 'box-shadow';
+          const val  = hasOutline ? cs.outline : boxShadow;
+
+          issues.push({
+            severity:        'warning',
+            label:           'Focus ring visible on button (:focus-visible)',
+            explain:         `A browser-default or theme focus ring appears on this button when focused (e.g. after clicking the close button). The :focus-visible pseudo-class is applying "${prop}: ${val}". This causes an unexpected circle or ring that only appears after interaction — which is why it doesn't show up in a static scan.`,
+            property:        prop,
+            computedValue:   val,
+            klaviyoIntended: 'none',
+            fixSuggestion:   `.klaviyo-form button:focus-visible {\n  outline: none;\n  box-shadow: none;\n}`,
+            sources:         [],
+            confidence:      4,
+            hasImportant:    false,
+            themeMatch:      null,
+            fixId:           null,
+            domPath:         getDomBreadcrumb(btn),
+          });
+        }
+      }
+    } catch (e) {
+      // Silent fail — never let focus detection break the scan
+    } finally {
+      if (prev && typeof prev.focus === 'function') prev.focus({ preventScroll: true });
+      else btn.blur();
+    }
     return issues;
   }
 

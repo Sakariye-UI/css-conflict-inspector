@@ -1546,9 +1546,9 @@ function buildCustomerMessage(form) {
   const count = grouped.length;
   const lines = [];
 
-  lines.push("Hi there,");
+  lines.push("Hi {{ticket.requester.first_name}},");
   lines.push("");
-  lines.push(`Thank you for reaching out. I've taken a look at your site and found the reason your Klaviyo ${type} isn't displaying as expected.`);
+  lines.push(`Thank you for reaching out. My name is {{current_user.first_name}}. I've taken a look at your site and found the reason your Klaviyo ${type} isn't displaying as expected.`);
   lines.push("");
   lines.push(`The ${count === 1 ? "issue is" : `${count} issues are`} caused by CSS rules in your website's theme that are overriding the ${type}'s styles. These rules come from your site's own code rather than from Klaviyo, so your developer or theme provider will need to make a small update to resolve them.`);
   lines.push("");
@@ -1605,8 +1605,8 @@ function renderCustomerMessage(form, formIdx) {
   const type  = escHtml(form.componentType || "component");
   const count = grouped.length;
 
-  let body = `Hi there,\n\n`;
-  body += `Thank you for reaching out. I've reviewed your site and found the reason your Klaviyo <strong>${type}</strong> isn't displaying as expected.\n\n`;
+  let body = `Hi {{ticket.requester.first_name}},\n\n`;
+  body += `Thank you for reaching out. My name is {{current_user.first_name}}. I've reviewed your site and found the reason your Klaviyo <strong>${type}</strong> isn't displaying as expected.\n\n`;
   body += `The ${count === 1 ? "issue is" : `<strong>${count} issues are</strong>`} caused by CSS rules in your website's theme that are overriding the ${type}'s styles. These rules come from your site's own code — not from Klaviyo — so your developer or theme provider will need to make a small update to resolve them.\n\n`;
   body += `<strong>Here's the full breakdown to share with your developer:</strong>\n`;
 
