@@ -897,9 +897,14 @@
       let transformLabel = "transform: scale(0)";
       let transformExplain = "The element has been scaled to zero via CSS transform.";
 
-      if (transform.startsWith("matrix(0")) {
+      // Skip Klaviyo teaser/popup elements — they intentionally use scale(0) to
+      // hide themselves until triggered and this is not a CSS conflict.
+      const isKlaviyoTeaser = el.matches('[class*="kl-teaser-"]') ||
+        !!el.closest('[class*="kl-teaser-"]');
+
+      if (transform.startsWith("matrix(0") && !isKlaviyoTeaser) {
         flagTransform = true;
-      } else {
+      } else if (!isKlaviyoTeaser) {
         // Parse 2D matrix(a,b,c,d,e,f) and check if translateX(e) or translateY(f)
         // places the element outside the viewport
         const matMatch = transform.match(/^matrix\(\s*([-\d.e]+)\s*,\s*([-\d.e]+)\s*,\s*([-\d.e]+)\s*,\s*([-\d.e]+)\s*,\s*([-\d.e]+)\s*,\s*([-\d.e]+)\s*\)$/);
