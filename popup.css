@@ -1366,7 +1366,15 @@ body[data-theme="light"] .mob-device-btn.mob-device-active { background: #ede9ff
 .btn-preview-fix.fix-active { background: var(--yellow-soft); color: var(--yellow); border-color: rgba(251,191,36,0.4); }
 .btn-preview-fix:disabled { opacity: 0.4; cursor: default; }
 
-/* ── Dismiss buttons ── */
+/* Synthetic (cross-origin) CSS source row — dimmed/italic */
+.css-source-synthetic { opacity: 0.75; }
+.css-src-cross-origin { font-style: italic; }
+.css-src-synthetic-note { color: var(--text-mute); font-size: 10px; font-style: italic; }
+
+/* @layer annotation */
+.css-src-layer { color: #818cf8; font-size: 10px; font-style: italic; }
+
+/* Dismiss buttons ── */
 .btn-dismiss-card {
   flex-shrink: 0; background: none; border: none;
   color: var(--text-mute); font-size: 11px; line-height: 1;

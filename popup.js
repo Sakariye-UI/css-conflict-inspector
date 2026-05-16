@@ -1258,6 +1258,7 @@ function render(data) {
   // Attach dismiss listeners and hide any previously dismissed warnings.
   attachDismissListeners();
   applyDismissed();
+
 }
 
 // ── SCRIPT HEALTH PANEL ───────────────────────────────────
@@ -1424,9 +1425,10 @@ function renderIssueWithWhere(issue, whereTag, ctx = {}) {
     html += `<div class="css-sources"><div class="css-sources-label">📄 Caused by this CSS rule:</div>`;
     issue.sources.forEach(src => {
       if (src.crossOrigin) {
-        html += `<div class="css-source-row">
-          <span class="css-src-file">${escHtml(src.source)}</span>
+        html += `<div class="css-source-row css-source-synthetic">
+          <span class="css-src-file css-src-cross-origin">${escHtml(src.source)}</span>
           <span class="css-src-cross"> — cross-origin, can't read rules</span>
+          ${src.syntheticNote ? `<br><span class="css-src-synthetic-note">${escHtml(src.syntheticNote)}</span>` : ""}
         </div>`;
       } else {
         const spec = src.specificity
@@ -1434,6 +1436,7 @@ function renderIssueWithWhere(issue, whereTag, ctx = {}) {
           : "";
         html += `<div class="css-source-row">
           <span class="css-src-file-label">File: </span><span class="css-src-file">${escHtml(src.source)}</span>${spec}<br>
+          ${src.layerName ? `<span class="css-src-layer">@layer ${escHtml(src.layerName)}</span><br>` : ""}
           ${src.mediaQuery ? `<span class="css-src-media">@media ${escHtml(src.mediaQuery)}</span><br>` : ""}
           <span class="css-src-rule-label">Rule: </span><span class="css-src-selector">${escHtml(src.selector)}</span>
           <span style="color:#565f89"> { </span>

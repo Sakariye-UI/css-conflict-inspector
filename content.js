@@ -102,6 +102,44 @@
       }
     });
 
+    // Step 20: Ad blocker / script interception detection
+    // If the script tag exists but window.klaviyo is undefined/null,
+    // it likely means an ad blocker or script blocker is intercepting the request.
+    if (klaviyoScripts.length > 0) {
+      // We check using the isolated world — window globals won't be accessible here,
+      // but we can still check if window.klaviyo is falsy in the page context by
+      // looking for side effects. Attempt to read via a safe pattern.
+      try {
+        // If window.klaviyo is accessible (same world check won't work in isolated world),
+        // fallback: check for the klaviyo object by inspecting if any of the known
+        // Klaviyo globals appear set via inline scripts.
+        const inlineText2 = Array.from(document.scripts)
+          .filter(s => !s.src && s.textContent)
+          .map(s => s.textContent)
+          .join("\n");
+        const klaviyoPushPattern = /window\.klaviyo\s*=\s*window\.klaviyo\s*\|\||klaviyo\.push|_klOnsite/;
+        const hasKlaviyoInline = klaviyoPushPattern.test(inlineText2);
+        // If script is present but no evidence of Klaviyo initializing, flag it
+        if (!hasKlaviyoInline) {
+          // Check for ad-blocker signals: common blocked script status
+          const allScripts3 = Array.from(document.scripts);
+          const hasBlockedSignal = allScripts3.some(s =>
+            s.src && s.src.includes("klaviyo") && s.getAttribute("data-blocked")
+          );
+          // Conservative: only flag if we find specific blocking indicators
+          if (hasBlockedSignal) {
+            issues.push({
+              severity: "critical",
+              code:     "SCRIPT_BLOCKED",
+              title:    "Klaviyo script may be blocked by an ad blocker or content filter",
+              detail:   "The Klaviyo script tag is present on the page, but there are signs it may be intercepted or blocked by a browser extension or network-level filter. This would prevent all forms from appearing.",
+              fix:      "Check for ad blockers or privacy extensions in the browser. Ask the customer to test in an incognito window without extensions enabled.",
+            });
+          }
+        }
+      } catch (_) {}
+    }
+
     // Return only loader scripts in the display list (chunk files are noise)
     const displayScripts = loaderScripts.length > 0 ? loaderScripts : klaviyoScripts.slice(0, 1);
 
@@ -188,6 +226,58 @@
         detail: "An inline script calls stopPropagation() or stopImmediatePropagation() on click, submit, or keydown events. If this handler fires before Klaviyo's own event listeners, it can prevent form submissions, email validation, and close-button interactions from working.",
         fix: "Audit the inline event handler that calls stopPropagation and ensure it does not target elements inside Klaviyo form containers. If it is a global document-level listener, scope it to exclude Klaviyo elements: if (e.target.closest('[class*=\"klaviyo\"]')) return;",
       });
+    }
+
+    // Step 3: scroll-lock orphan check
+    if (document.body && document.body.classList.contains("klaviyo-prevent-body-scrolling")) {
+      const openForms = document.querySelectorAll(".klaviyo-form");
+      const hasOpenForm = Array.from(openForms).some(f => {
+        const cs = window.getComputedStyle(f);
+        return cs.display === "flex" || cs.display === "grid" || cs.display === "block";
+      });
+      if (!hasOpenForm) {
+        issues.push({
+          severity: "warning",
+          code:     "SCROLL_LOCK_ORPHAN",
+          title:    "klaviyo-prevent-body-scrolling left on <body>",
+          detail:   "The class klaviyo-prevent-body-scrolling is present on <body> but no Klaviyo form appears to be open. This is an orphaned scroll-lock that prevents the user from scrolling the page.",
+          fix:      "Remove the class from <body> with: document.body.classList.remove('klaviyo-prevent-body-scrolling'). This can happen if a form was closed mid-animation or a script error interrupted Klaviyo's cleanup.",
+        });
+      }
+    }
+
+    // Step 14: external scripts limitation note
+    const externalScripts = Array.from(document.scripts).filter(s => s.src);
+    if (externalScripts.length > 0) {
+      issues.push({
+        severity: "info",
+        code:     "EXTERNAL_SCRIPTS_NOT_SCANNED",
+        title:    "External scripts not scanned",
+        detail:   `This tool only scans inline <script> blocks for JS conflicts. ${externalScripts.length} external script(s) were found on this page and could not be inspected. A third-party script loaded from an external file may still be causing issues not detected here.`,
+        fix:      null,
+      });
+    }
+
+    // Step 17: body/html overflow hidden check
+    for (const el of [document.body, document.documentElement]) {
+      if (!el) continue;
+      // Skip if it's Klaviyo's own scroll-lock class
+      if (el.classList && el.classList.contains("klaviyo-prevent-body-scrolling")) continue;
+      const cs = window.getComputedStyle(el);
+      if (cs.overflow === "hidden" || cs.overflowX === "hidden" || cs.overflowY === "hidden") {
+        const tagName = el.tagName.toLowerCase();
+        const fixId17 = _regFix(el, "overflow");
+        issues.push({
+          severity: "warning",
+          code:     "BODY_OVERFLOW_HIDDEN",
+          title:    `overflow: hidden on <${tagName}>`,
+          detail:   `The <${tagName}> element has overflow: hidden. This can prevent Klaviyo's position:fixed modals from scrolling or clip flyout forms near the viewport edges. It is not caused by Klaviyo's own scroll-lock class.`,
+          fix:      `Set overflow: auto or overflow: visible on <${tagName}>.`,
+          fixId:    fixId17,
+          fixSelector: _fixReg.get(_fixId)?.sel || tagName,
+          property: "overflow",
+        });
+      }
     }
 
     return issues;
@@ -362,14 +452,20 @@
 
     // Secondary guard: if the matched root covers most of the page body
     // (i.e. it IS effectively the whole page), drop it to avoid false positives
+    // Step 11: improved interactiveCount guard
+    const pageInteractiveCount = document.querySelectorAll("button,input,select,textarea,a").length;
+    const interactiveThreshold = Math.max(30, Math.floor(pageInteractiveCount * 0.4));
+
     return roots
       .filter(el => {
         const tag = el.tagName.toLowerCase();
         if (BLOCKED_TAGS.has(tag)) return false;
-        // Extra guard: reject if the element contains more than 30 buttons/inputs
+        // Always trust elements with explicit Klaviyo form ID attributes
+        if (el.hasAttribute("data-form-id") || el.hasAttribute("data-embed-id")) return true;
+        // Reject if the element contains more interactive elements than the threshold
         // (indicates we matched a full-page container, not a specific form)
         const interactiveCount = el.querySelectorAll("button, input, select, textarea").length;
-        if (interactiveCount > 30) return false;
+        if (interactiveCount > interactiveThreshold) return false;
         return true;
       })
       .map(el => ({ el, type: found.get(el) }));
@@ -424,25 +520,35 @@
       let rules;
       try { rules = sheet.cssRules || sheet.rules; }
       catch (_) {
+        // Step 16: synthetic source entry with DevTools guidance
         sources.push({
           source: sheet.href ? new URL(sheet.href).pathname : "inline <style>",
           selector: "(cross-origin — cannot inspect)",
           value: null,
           important: false,
           crossOrigin: true,
+          synthetic: true,
+          syntheticNote: "This stylesheet is served from a different origin and cannot be read by the extension. To inspect it, open Chrome DevTools → Sources, navigate to the stylesheet, and search for the property manually.",
         });
         continue;
       }
       if (!rules) continue;
-      walkRules(rules, sheet, element, cssPropertyKebab, camel, sources, null);
+      walkRules(rules, sheet, element, cssPropertyKebab, camel, sources, null, null);
     }
     return sources;
   }
 
   // Compute CSS specificity (a, b, c) for a selector string.
   // a = ID count, b = class/attr/pseudo-class count, c = element count
-  function computeSpecificity(selector) {
+  function computeSpecificity(selector, rule) {
     if (!selector) return null;
+    // Step 13: try native API first if available
+    if (rule && rule.specificity) {
+      try {
+        const [a, b, c] = rule.specificity;
+        return { a, b, c };
+      } catch (_) {}
+    }
     try {
       let s = selector.split(",")[0].trim();
       let a = 0, b = 0, c = 0;
@@ -458,10 +564,15 @@
     } catch (_) { return null; }
   }
 
-  function walkRules(rules, sheet, el, kebab, camel, out, mediaText) {
+  function walkRules(rules, sheet, el, kebab, camel, out, mediaText, layerName) {
     for (const rule of rules) {
+      // Step 15: detect @layer blocks and pass layer name down
+      if (typeof CSSLayerBlockRule !== "undefined" && rule instanceof CSSLayerBlockRule) {
+        walkRules(rule.cssRules, sheet, el, kebab, camel, out, mediaText, rule.name || null);
+        continue;
+      }
       if (rule.cssRules) {
-        walkRules(rule.cssRules, sheet, el, kebab, camel, out, rule.conditionText || null);
+        walkRules(rule.cssRules, sheet, el, kebab, camel, out, rule.conditionText || null, layerName);
         continue;
       }
       if (!(rule instanceof CSSStyleRule)) continue;
@@ -475,7 +586,8 @@
               value: val,
               important: rule.style.getPropertyPriority(kebab) === "important",
               mediaQuery: mediaText,
-              specificity: computeSpecificity(rule.selectorText),
+              layerName: layerName || null,  // Step 15: layer annotation
+              specificity: computeSpecificity(rule.selectorText, rule),
             });
           }
         }
@@ -491,12 +603,22 @@
   const _fixReg = new Map();
   let _fixId = 0;
 
+  // Reset fix registry at the start of each scan (Step 22)
+  function _resetFixRegistry() {
+    _fixReg.clear();
+    _fixId = 0;
+  }
+
   const _FIX_VALUES = {
     "display": "block", "visibility": "visible", "opacity": "1",
     "pointer-events": "auto", "max-height": "none",
     "overflow": "visible", "overflow-x": "visible", "overflow-y": "visible",
     "transform": "none",
     "z-index": "2147483647",
+    "touch-action": "pan-y",
+    "filter": "none",
+    "color": "inherit",
+    "background-color": "transparent",
   };
 
   // Build a querySelector-compatible selector for an element so the popup can
@@ -592,19 +714,23 @@
     if (matchesTeaser(el)) return true;
 
     // 2. A visible Klaviyo/teaser sibling is present (the shown teaser button)
+    // Step 12: only match siblings with explicit teaser/trigger roles
     const parent = el.parentElement;
+    const formId12 = el.getAttribute("data-form-id") || el.getAttribute("data-embed-id") || el.id;
     if (parent) {
       const siblings = Array.from(parent.children).filter(c => c !== el);
       const hasVisibleKlaviyoSibling = siblings.some(sib => {
         const sibComputed = window.getComputedStyle(sib);
         if (sibComputed.display === "none") return false;          // must be visible
         const sibCls = (sib.className && typeof sib.className === "string" ? sib.className : "").toLowerCase();
-        const sibId  = (sib.id || "").toLowerCase();
+        const sibRole = (sib.getAttribute("data-role") || "").toLowerCase();
+        const sibAriaControls = sib.getAttribute("aria-controls") || "";
+        // Only count as intentional trigger if the sibling is explicitly a teaser/trigger
         return (
           matchesTeaser(sib) ||
-          sibCls.includes("klaviyo") || sibCls.includes("kl-") ||
-          sibId.includes("klaviyo") || sibId.includes("kl-") ||
-          sib.hasAttribute("data-form-id") || sib.hasAttribute("data-embed-id")
+          sibRole === "trigger" ||
+          sibCls.includes("teaser") || sibCls.includes("form-launcher") || sibCls.includes("form-trigger") ||
+          (formId12 && sibAriaControls === formId12)
         );
       });
       if (hasVisibleKlaviyoSibling) return true;
@@ -669,6 +795,25 @@
         // in teaser/closed state — do not flag it as a CSS conflict.
         if (prop === "display" && val === "none" && !skipTeaserCheck) {
           if (isIntentionallyHidden(el)) return; // skip — it's a teaser
+        }
+
+        // Skip display:none on input[type="hidden"] — always intentional.
+        // Skip display:none on input[type="submit"|"button"] when there is a
+        // visible <button> in the same form — Klaviyo uses a styled <button>
+        // as the real submit trigger and hides the fallback input.
+        if (prop === "display" && val === "none" && el.tagName === "INPUT") {
+          const t = (el.type || "").toLowerCase();
+          if (t === "hidden") return;
+          if (t === "submit" || t === "button") {
+            const form = el.closest("form");
+            if (form) {
+              const visibleBtn = Array.from(form.querySelectorAll("button")).some(b => {
+                const bs = window.getComputedStyle(b);
+                return bs.display !== "none" && bs.visibility !== "hidden" && bs.opacity !== "0";
+              });
+              if (visibleBtn) return; // hidden submit input is intentional
+            }
+          }
         }
         const sources = findCSSSource(el, cssProp);
         const hasImportant = sources.some(s => s.important);
@@ -745,27 +890,83 @@
       }
     }
 
-    // transform: scale(0)
+    // transform: scale(0) or off-viewport translate (Step 8)
     const transform = computed.transform;
-    if (transform && transform !== "none" && transform.startsWith("matrix(0")) {
-      const tfSources = findCSSSource(el, "transform");
-      issues.push({
-        severity: "critical",
-        label: "transform: scale(0)",
-        explain: "The element has been scaled to zero via CSS transform.",
-        property: "transform",
-        computedValue: transform,
-        sources: tfSources,
-        confidence: getConfidence("transform", tfSources.some(s => s.important)),
-        themeMatch: null,
-        fixId: _regFix(el, "transform"),
-        fixSelector: _fixReg.get(_fixId)?.sel || "",
-        domPath: getDomBreadcrumb(el),
-      });
+    if (transform && transform !== "none") {
+      let flagTransform = false;
+      let transformLabel = "transform: scale(0)";
+      let transformExplain = "The element has been scaled to zero via CSS transform.";
+
+      if (transform.startsWith("matrix(0")) {
+        flagTransform = true;
+      } else {
+        // Parse 2D matrix(a,b,c,d,e,f) and check if translateX(e) or translateY(f)
+        // places the element outside the viewport
+        const matMatch = transform.match(/^matrix\(\s*([-\d.e]+)\s*,\s*([-\d.e]+)\s*,\s*([-\d.e]+)\s*,\s*([-\d.e]+)\s*,\s*([-\d.e]+)\s*,\s*([-\d.e]+)\s*\)$/);
+        if (matMatch) {
+          const e = parseFloat(matMatch[5]); // translateX
+          const f = parseFloat(matMatch[6]); // translateY
+          if (Math.abs(e) > window.innerWidth || Math.abs(f) > window.innerHeight) {
+            flagTransform = true;
+            transformLabel = `transform translates element off-screen (${Math.round(e)}px, ${Math.round(f)}px)`;
+            transformExplain = `The element is translated ${Math.round(e)}px horizontally and ${Math.round(f)}px vertically via CSS transform, placing it outside the viewport (${window.innerWidth}×${window.innerHeight}px). The element exists in the DOM but is not visible to users.`;
+          }
+        }
+      }
+
+      if (flagTransform) {
+        const tfSources = findCSSSource(el, "transform");
+        issues.push({
+          severity: "critical",
+          label: transformLabel,
+          explain: transformExplain,
+          property: "transform",
+          computedValue: transform,
+          sources: tfSources,
+          confidence: getConfidence("transform", tfSources.some(s => s.important)),
+          themeMatch: null,
+          fixId: _regFix(el, "transform"),
+          fixSelector: _fixReg.get(_fixId)?.sel || "",
+          domPath: getDomBreadcrumb(el),
+        });
+      }
+    }
+
+    // Step 2: touch-action check (walk up max 5 levels)
+    {
+      let taNode = el;
+      let taLevels = 0;
+      while (taNode && taNode !== document.documentElement && taLevels < 6) {
+        const taStyle = window.getComputedStyle(taNode);
+        const taVal = taStyle.touchAction;
+        if (taVal === "none" || taVal === "pan-x") {
+          const taSources = findCSSSource(taNode, "touch-action");
+          const taFixId = _regFix(taNode, "touch-action");
+          issues.push({
+            severity:      "warning",
+            label:         `touch-action: ${taVal}${taNode !== el ? ` on ancestor ${describeEl(taNode)}` : ""}`,
+            explain:       `touch-action: ${taVal} prevents vertical scrolling on touch devices. Set touch-action: pan-y on the Klaviyo form container to allow users to scroll through the form.`,
+            property:      "touch-action",
+            computedValue: taVal,
+            fixSuggestion: `.klaviyo-form-container { touch-action: pan-y; }`,
+            sources:       taSources,
+            confidence:    3,
+            hasImportant:  taSources.some(s => s.important),
+            themeMatch:    null,
+            fixId:         taFixId,
+            fixSelector:   _fixReg.get(_fixId)?.sel || "",
+            domPath:       getDomBreadcrumb(taNode),
+          });
+          break;
+        }
+        taNode = taNode.parentElement;
+        taLevels++;
+      }
     }
 
     // Ancestor overflow clipping
     let ancestor = el.parentElement;
+    let ancestorLevel = 0;
     while (ancestor && ancestor !== document.documentElement) {
       // Skip: Klaviyo adds this class to <body> when a form opens to lock
       // background scroll. It's Klaviyo's own behaviour — never a conflict.
@@ -802,6 +1003,82 @@
           break;
         }
       }
+
+      // Step 5: filter on ancestors (up to 10 levels)
+      if (ancestorLevel < 10) {
+        const filterVal = aStyle.filter;
+        if (filterVal && filterVal !== "none") {
+          const filterSources = findCSSSource(ancestor, "filter");
+          const filterFixId   = _regFix(ancestor, "filter");
+          issues.push({
+            severity:      "warning",
+            label:         `filter on ancestor — ${describeEl(ancestor)}`,
+            explain:       `A parent element (${describeEl(ancestor)}) has a CSS filter applied (${filterVal}). This creates a new stacking context and can cause Klaviyo popup overlays to render incorrectly or be clipped.`,
+            property:      "filter",
+            computedValue: filterVal,
+            fixSuggestion: `${_getFixSelector(ancestor)} { filter: none; }`,
+            sources:       filterSources,
+            confidence:    3,
+            hasImportant:  filterSources.some(s => s.important),
+            themeMatch:    null,
+            fixId:         filterFixId,
+            fixSelector:   _fixReg.get(_fixId)?.sel || "",
+            domPath:       getDomBreadcrumb(ancestor),
+          });
+        }
+
+        // Step 6: isolation, will-change, contain stacking context checks
+        const isolation = aStyle.isolation;
+        const willChange = aStyle.willChange;
+        const contain = aStyle.contain;
+
+        if (isolation === "isolate") {
+          issues.push({
+            severity:      "info",
+            label:         `isolation: isolate on ancestor — ${describeEl(ancestor)}`,
+            explain:       `A parent element (${describeEl(ancestor)}) has isolation: isolate, which creates a new stacking context. This can confine Klaviyo's z-index within this boundary, potentially causing popup layers to appear behind page content.`,
+            property:      "isolation",
+            computedValue: isolation,
+            sources:       [],
+            confidence:    2,
+            themeMatch:    null,
+            fixId:         null,
+            domPath:       getDomBreadcrumb(ancestor),
+          });
+        }
+
+        if (willChange && willChange !== "auto" && willChange.includes("transform")) {
+          issues.push({
+            severity:      "info",
+            label:         `will-change: transform on ancestor — ${describeEl(ancestor)}`,
+            explain:       `A parent element (${describeEl(ancestor)}) has will-change: transform, which creates a new stacking context. Klaviyo's position:fixed elements may be positioned relative to this element rather than the viewport.`,
+            property:      "will-change",
+            computedValue: willChange,
+            sources:       [],
+            confidence:    2,
+            themeMatch:    null,
+            fixId:         null,
+            domPath:       getDomBreadcrumb(ancestor),
+          });
+        }
+
+        if (contain && (contain.includes("layout") || contain.includes("paint"))) {
+          issues.push({
+            severity:      "info",
+            label:         `contain: ${contain} on ancestor — ${describeEl(ancestor)}`,
+            explain:       `A parent element (${describeEl(ancestor)}) has contain: ${contain}, which creates a new stacking context boundary. This can interfere with how Klaviyo's popup overlays are layered on the page.`,
+            property:      "contain",
+            computedValue: contain,
+            sources:       [],
+            confidence:    2,
+            themeMatch:    null,
+            fixId:         null,
+            domPath:       getDomBreadcrumb(ancestor),
+          });
+        }
+      }
+
+      ancestorLevel++;
       ancestor = ancestor.parentElement;
     }
 
@@ -976,6 +1253,109 @@
     return issues;
   }
 
+  // ── 7d. INPUT STYLE CONFLICT CHECK (Step 1) ──────────────────────────────
+  // Detects invisible text (white-on-white etc.) on form input fields.
+
+  function _parseRGB(color) {
+    // Returns [r, g, b] or null
+    const m = color.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    return m ? [parseInt(m[1]), parseInt(m[2]), parseInt(m[3])] : null;
+  }
+
+  function _colorDistance(a, b) {
+    if (!a || !b) return 999;
+    return Math.sqrt(
+      Math.pow(a[0] - b[0], 2) +
+      Math.pow(a[1] - b[1], 2) +
+      Math.pow(a[2] - b[2], 2)
+    );
+  }
+
+  function checkInputStyleConflicts(inp) {
+    const issues = [];
+    const computed = window.getComputedStyle(inp);
+    const TRANSPARENT = new Set(["transparent", "rgba(0, 0, 0, 0)", "rgba(0,0,0,0)", "initial", ""]);
+
+    const textColor = computed.color;
+    const bgColor   = computed.backgroundColor;
+
+    // Check if text color and background color are the same or nearly the same
+    if (textColor && bgColor && !TRANSPARENT.has(bgColor.trim())) {
+      const tc = _parseRGB(textColor);
+      const bc = _parseRGB(bgColor);
+      if (tc && bc) {
+        const dist = _colorDistance(tc, bc);
+        if (dist < 30) {
+          // Very similar — invisible text
+          const colorSources = findCSSSource(inp, "color");
+          const bgSources    = findCSSSource(inp, "background-color");
+          issues.push({
+            severity:       "warning",
+            label:          "Invisible input text (text colour ≈ background)",
+            explain:        `The input's text colour (${textColor}) is nearly identical to its background colour (${bgColor}). Users will not be able to see what they type.`,
+            property:       "color",
+            computedValue:  textColor,
+            klaviyoIntended: null,
+            fixSuggestion:  `.klaviyo-form input { color: #000 !important; }`,
+            sources:        colorSources,
+            confidence:     4,
+            hasImportant:   colorSources.some(s => s.important),
+            themeMatch:     null,
+            fixId:          _regFix(inp, "color"),
+            fixSelector:    _fixReg.get(_fixId)?.sel || "",
+            domPath:        getDomBreadcrumb(inp),
+          });
+          return issues; // No need to check further for this input
+        }
+      }
+    }
+
+    // Also check if a site source is overriding Klaviyo's intended color
+    const propsToCheck = [
+      { kebab: "color",            camel: "color",            label: "Input text colour overridden by site CSS" },
+      { kebab: "background-color", camel: "backgroundColor",  label: "Input background overridden by site CSS" },
+    ];
+
+    for (const { kebab, camel, label } of propsToCheck) {
+      const sources = findCSSSource(inp, kebab);
+      if (!sources.length) continue;
+
+      const klaviyoSources = sources.filter(s =>
+        _isKlaviyoSource(s) && s.value && !TRANSPARENT.has(s.value.trim())
+      );
+      if (!klaviyoSources.length) continue;
+
+      const klaviyoIntended = klaviyoSources[klaviyoSources.length - 1].value;
+      const siteSources = sources.filter(s =>
+        !_isKlaviyoSource(s) && s.value && !TRANSPARENT.has(s.value.trim())
+      );
+      if (!siteSources.length) continue;
+
+      const computedVal = computed[camel];
+      const normalise = v => v.replace(/\s/g, "").toLowerCase();
+      if (normalise(computedVal) === normalise(klaviyoIntended)) continue;
+
+      issues.push({
+        severity:       "warning",
+        label,
+        explain:        `Klaviyo set this input's ${kebab} to ${klaviyoIntended}, but the site's CSS is overriding it to ${computedVal}.`,
+        property:       kebab,
+        computedValue:  computedVal,
+        klaviyoIntended,
+        fixSuggestion:  `.klaviyo-form input { ${kebab}: ${klaviyoIntended} !important; }`,
+        sources:        siteSources,
+        confidence:     3,
+        hasImportant:   siteSources.some(s => s.important),
+        themeMatch:     null,
+        fixId:          _regFix(inp, kebab),
+        fixSelector:    _fixReg.get(_fixId)?.sel || "",
+        domPath:        getDomBreadcrumb(inp),
+      });
+    }
+
+    return issues;
+  }
+
   // ── 7b. CLOSE BUTTON Z-INDEX CONFLICT DETECTION ────────────
   // Detects when a third-party script applies z-index to Klaviyo's
   // .needsclick utility class, flattening sibling stacking order so
@@ -1083,6 +1463,34 @@
       ...checkElement(el),
       ...checkCloseButtonZIndexConflict(el),
     ];
+
+    // Step 7: iframe context warning
+    if (el.ownerDocument && el.ownerDocument !== document) {
+      containerIssues.push({
+        severity:      "warning",
+        label:         "Component found inside an iframe",
+        explain:       "This Klaviyo component was detected inside an iframe. position:fixed popup overlays will be clipped to the iframe bounds rather than the full viewport, which may cause the form to appear cut off or positioned incorrectly.",
+        property:      "iframe",
+        computedValue: "iframe",
+        sources:       [],
+        confidence:    3,
+        themeMatch:    null,
+        fixId:         null,
+        domPath:       getDomBreadcrumb(el),
+      });
+    }
+
+    // Step 10: Reviews carousel — improve overflow fix text
+    if (type === "Reviews Widget") {
+      containerIssues.forEach(issue => {
+        if (issue.property === "overflow" && issue.label && issue.label.includes("overflow:hidden")) {
+          issue.explain = "A parent element has overflow:hidden and is clipping the Klaviyo Reviews carousel. This commonly causes the carousel navigation arrows or star-rating widgets to be cut off at the container edge.";
+          if (issue.fixSuggestion == null) {
+            issue.fixSuggestion = `/* Override overflow on the parent containing the reviews carousel */\n${issue.domPath ? issue.domPath.split(" > ").pop() : "parent-element"} {\n  overflow: visible !important;\n}`;
+          }
+        }
+      });
+    }
     const containerInline = checkInlineStyle(el);
 
     // Skip child inputs/buttons for teaser containers — they are intentionally
@@ -1099,14 +1507,9 @@
     const inputs = el.querySelectorAll('input[type="text"], input[type="email"], input[type="tel"], textarea');
     const inputResults = isTeaserContainer ? [] : Array.from(inputs).map(inp => ({
       element: describeEl(inp),
-      issues:  checkElement(inp),
+      issues:  [...checkElement(inp), ...checkInputStyleConflicts(inp)],
       inlineStyle: checkInlineStyle(inp),
     })).filter(r => r.issues.length > 0 || r.inlineStyle.length > 0);
-
-    const totalIssues =
-      containerIssues.length +
-      buttonResults.reduce((a, b) => a + b.issues.length, 0) +
-      inputResults.reduce((a, b) => a + b.issues.length, 0);
 
     // Pull the Klaviyo form ID for display + dashboard link.
     // Priority: data-form-id / data-embed-id → data-testid → className match
@@ -1130,17 +1533,51 @@
       return extractId(child);
     })();
 
+    // Step 21: Overlay element covering form
+    try {
+      const rect21 = el.getBoundingClientRect();
+      if (rect21.width > 0 && rect21.height > 0) {
+        const cx = rect21.left + rect21.width  / 2;
+        const cy = rect21.top  + rect21.height / 2;
+        if (cx >= 0 && cy >= 0 && cx < window.innerWidth && cy < window.innerHeight) {
+          const topEl = document.elementFromPoint(cx, cy);
+          if (topEl && topEl !== el && !el.contains(topEl)) {
+            const topStyle = window.getComputedStyle(topEl);
+            if (topStyle.pointerEvents !== "none") {
+              containerIssues.push({
+                severity:      "warning",
+                label:         `Overlapping element covering form — ${describeEl(topEl)}`,
+                explain:       `At the center of this Klaviyo component, the topmost visible element is ${describeEl(topEl)}, which is not part of the form. This element may be intercepting clicks and preventing users from interacting with the form.`,
+                property:      "z-index",
+                computedValue: topStyle.zIndex,
+                sources:       [],
+                confidence:    3,
+                themeMatch:    null,
+                fixId:         null,
+                domPath:       getDomBreadcrumb(topEl),
+              });
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    const finalTotalIssues =
+      containerIssues.length +
+      buttonResults.reduce((a, b) => a + b.issues.length, 0) +
+      inputResults.reduce((a, b) => a + b.issues.length, 0);
+
     return {
       index,
       element:        describeEl(el),
       formId,
       componentType:  type,
-      healthy:        totalIssues === 0,
+      healthy:        finalTotalIssues === 0,
       containerIssues,
       containerInline,
       buttonResults,
       inputResults,
-      totalIssues,
+      totalIssues:    finalTotalIssues,
       zIndexStack:    getZIndexStack(el),
     };
   }
@@ -1209,6 +1646,27 @@
       });
     }
 
+    // Step 4: CSP img-src check for Klaviyo CloudFront images
+    if (hasCspMeta && cspString) {
+      const imgSrcRaw   = (cspString.match(/img-src([^;]*)/i) || [])[1] || "";
+      const defaultSrc2 = (cspString.match(/default-src([^;]*)/i) || [])[1] || "";
+      const effectiveImg = imgSrcRaw || defaultSrc2;
+      if (effectiveImg) {
+        const allowsCloudFront = effectiveImg.includes("*") ||
+          effectiveImg.includes("cloudfront.net") ||
+          effectiveImg.includes("d3k81ch9hvuctc.cloudfront.net");
+        if (!allowsCloudFront) {
+          issues.push({
+            severity: "info",
+            code:     "CSP_BLOCKS_IMG_CLOUDFRONT",
+            title:    "CSP img-src may block Klaviyo form images (served from CloudFront)",
+            detail:   "Klaviyo serves form images from d3k81ch9hvuctc.cloudfront.net. The page's CSP img-src directive does not appear to allow this domain, which may cause form images to not load.",
+            fix:      "Add 'd3k81ch9hvuctc.cloudfront.net' or '*.cloudfront.net' to the site's Content-Security-Policy img-src directive.",
+          });
+        }
+      }
+    }
+
     return { issues, hasCsp: hasCspMeta };
   }
 
@@ -1242,10 +1700,39 @@
     const bodyData = document.body ? document.body.dataset : {};
     if (bodyData.privacyManager || bodyData.consentManager) detected.push("Unknown CMP (data attr)");
 
-    return { detected };
+    // Step 18: Check if Klaviyo script tag has consent-gating attributes
+    const cmpIssues = [];
+    if (detected.length > 0) {
+      const allScripts2 = Array.from(document.scripts);
+      const klaviyoScript = allScripts2.find(s =>
+        s.src && (s.src.includes("klaviyo.com") || s.src.includes("company_id="))
+      );
+      if (klaviyoScript) {
+        const consentAttrs = ["data-cookieconsent", "data-consent", "type"];
+        const hasConsentGating = consentAttrs.some(attr => {
+          const val = klaviyoScript.getAttribute(attr);
+          if (!val) return false;
+          // type="text/plain" is a common consent-blocking pattern
+          if (attr === "type" && val === "text/plain") return true;
+          return val.toLowerCase().includes("consent") || val.toLowerCase().includes("analytics") || val.toLowerCase().includes("marketing");
+        });
+        if (hasConsentGating) {
+          cmpIssues.push({
+            severity: "warning",
+            code:     "CMP_CONSENT_GATES_KLAVIYO",
+            title:    `${detected[0]} is consent-gating Klaviyo's script`,
+            detail:   `The Klaviyo script tag has consent-management attributes (e.g. type="text/plain" or data-cookieconsent). First-time visitors who have not accepted cookies will not see any Klaviyo forms, as the script will not load until consent is given.`,
+            fix:      "If Klaviyo is necessary for the site's core functionality, consider excluding it from consent gating, or ensure the consent banner fires early enough that forms load for all visitors.",
+          });
+        }
+      }
+    }
+
+    return { detected, cmpIssues };
   }
 
   function analyze() {
+    _resetFixRegistry(); // Step 22: clear stale fix registry on each scan
     const scriptHealth    = checkScriptHealth();
     const behaviourIssues = checkFormBehaviourIssues();
     const components      = findKlaviyoComponents();
@@ -1510,14 +1997,15 @@
   // CSS analysis on it — regardless of whether auto-detection found it.
 
   function manualCheckForm(formId) {
-    const esc = id => id.replace(/([!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~])/g, "\\$1");
+    _resetFixRegistry(); // Step 22: clear stale fix registry
+    const escSel = id => id.replace(/([!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~])/g, "\\$1");
 
     // Find any element that carries this form ID
     const found = (
-      document.querySelector(`[data-testid="klaviyo-form-${esc(formId)}"]`) ||
-      document.querySelector(`[data-testid*="${esc(formId)}"]`) ||
-      document.querySelector(`[data-form-id="${esc(formId)}"]`) ||
-      document.querySelector(`[data-embed-id="${esc(formId)}"]`)
+      document.querySelector(`[data-testid="klaviyo-form-${escSel(formId)}"]`) ||
+      document.querySelector(`[data-testid*="${escSel(formId)}"]`) ||
+      document.querySelector(`[data-form-id="${escSel(formId)}"]`) ||
+      document.querySelector(`[data-embed-id="${escSel(formId)}"]`)
     );
 
     if (!found) return { found: false, formId };
@@ -1551,41 +2039,18 @@
       ancestor = ancestor.parentElement;
     }
 
-    const containerIssues = checkElement(container);
-    const containerInline  = checkInlineStyle(container);
-
-    const isTeaserContainer = isIntentionallyHidden(container);
-
-    const buttonResults = isTeaserContainer ? [] : Array.from(
-      container.querySelectorAll('button, input[type="submit"], [role="button"]')
-    ).map(btn => ({
-      element: describeEl(btn),
-      issues: [...checkElement(btn), ...checkButtonStyleConflicts_single(btn)],
-      inlineStyle: checkInlineStyle(btn),
-    })).filter(r => r.issues.length > 0 || r.inlineStyle.length > 0);
-
-    const inputResults = isTeaserContainer ? [] : Array.from(
-      container.querySelectorAll('input[type="text"], input[type="email"], input[type="tel"], textarea')
-    ).map(inp => ({
-      element: describeEl(inp),
-      issues: checkElement(inp),
-      inlineStyle: checkInlineStyle(inp),
-    })).filter(r => r.issues.length > 0 || r.inlineStyle.length > 0);
-
-    const totalIssues =
-      containerIssues.length +
-      buttonResults.reduce((a, b) => a + b.issues.length, 0) +
-      inputResults.reduce((a, b)  => a + b.issues.length, 0);
+    // Step 23: delegate to inspectComponent for deduplication
+    const result = inspectComponent(container, "Signup Form", 1);
 
     return {
       found: true,
       formId,
-      element: describeEl(container),
-      containerIssues,
-      containerInline,
-      buttonResults,
-      inputResults,
-      totalIssues,
+      element: result.element,
+      containerIssues: result.containerIssues,
+      containerInline: result.containerInline,
+      buttonResults:   result.buttonResults,
+      inputResults:    result.inputResults,
+      totalIssues:     result.totalIssues,
     };
   }
 
