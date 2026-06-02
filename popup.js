@@ -2722,10 +2722,27 @@ async function runTestSubmit(tabId, formId, externalResultEl = null) {
           return r.width > 0 && r.height > 0;
         })() : false;
 
+        // hasNextBtn fallback: if no selector-matched button is visible, check for
+        // any visible non-dismiss button (e.g. "Sign Me Up!", "Continue") — these
+        // custom labels are never matched by NEXT_BTN_SELECTORS but ARE the next button.
+        const hasNextBtn = nextBtnVisible || Array.from(formEl.querySelectorAll('button')).some(b => {
+          if (b.getAttribute('role') === 'combobox') return false;
+          const t = b.textContent.trim().toLowerCase();
+          if (t === 'no thanks' || t === 'no thank you' || t === 'dismiss') return false;
+          let n = b;
+          while (n && n !== document.body) {
+            const s = window.getComputedStyle(n);
+            if (s.display === 'none' || s.visibility === 'hidden') return false;
+            n = n.parentElement;
+          }
+          const r = b.getBoundingClientRect();
+          return r.width > 0 && r.height > 0;
+        });
+
         return {
           emailFilled: !!(emailInput && email && emailInput.value),
           phoneFilled,
-          hasNextBtn: nextBtnVisible,
+          hasNextBtn,
           companyId,
         };
       },
