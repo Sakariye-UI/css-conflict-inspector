@@ -3814,7 +3814,19 @@ async function findSource(btn) {
   const fixProperty = btn.dataset.fixProperty || "";
   if (!fixSelector || !fixProperty) return;
 
-  // Prevent double-clicks
+  const issueItem   = btn.closest(".issue-item");
+  const issueHeader = btn.closest(".issue-header");
+
+  // ── Toggle off: if result is already showing, clear it and reset ──
+  if (btn.dataset.active === "1") {
+    issueItem?.querySelector(".source-result")?.remove();
+    btn.dataset.active = "0";
+    btn.textContent = "🔍 Find Source";
+    btn.classList.remove("source-confirmed");
+    return;
+  }
+
+  // ── Toggle on: run the disable-test ──
   btn.disabled = true;
   btn.textContent = "⏳ Testing…";
 
@@ -3824,8 +3836,7 @@ async function findSource(btn) {
 
     const resp = await chrome.tabs.sendMessage(tab.id, { action: "findSource", fixSelector, fixProperty });
 
-    // Remove any existing source-result panel on this issue card first
-    const issueItem = btn.closest(".issue-item");
+    // Remove any stale panel from a previous run
     issueItem?.querySelector(".source-result")?.remove();
 
     if (!resp || !resp.success) {
@@ -3870,18 +3881,19 @@ async function findSource(btn) {
       panel.innerHTML = html;
     }
 
-    // Insert the panel after the issue-header row
-    const issueHeader = btn.closest(".issue-header");
     if (issueHeader) {
       issueHeader.insertAdjacentElement("afterend", panel);
     } else {
       btn.insertAdjacentElement("afterend", panel);
     }
 
-    btn.textContent = "🔍 Find Source";
+    // Mark button as active — next click will clear
+    btn.dataset.active = "1";
+    btn.textContent = culprits.length > 0 ? "✕ Clear Source" : "🔍 Find Source";
     btn.classList.toggle("source-confirmed", culprits.length > 0);
   } catch (err) {
     btn.textContent = "🔍 Find Source";
+    btn.dataset.active = "0";
   } finally {
     btn.disabled = false;
   }
