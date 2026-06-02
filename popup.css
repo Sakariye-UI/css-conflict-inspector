@@ -325,13 +325,24 @@ body {
 .summary-bar {
   padding: 10px 14px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 7px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
 
+.summary-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .summary-left { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+.summary-actions {
+  display: flex;
+  gap: 6px;
+}
 
 .badge {
   display: inline-flex;
@@ -1275,14 +1286,17 @@ body[data-theme="light"] .mob-device-btn.mob-device-active { background: #ede9ff
 
 /* ── Export JSON button ── */
 .btn-export-json {
+  flex: 1;
   background: none;
   border: 1px solid var(--border2);
   border-radius: 5px;
   color: var(--text-sub);
   cursor: pointer;
   font-size: 11px;
-  padding: 3px 7px;
-  font-family: inherit; white-space: nowrap;
+  padding: 5px 0;
+  font-family: inherit;
+  white-space: nowrap;
+  text-align: center;
 }
 .btn-export-json:hover { background: var(--surface2); color: var(--text); }
 
@@ -1428,11 +1442,17 @@ body[data-theme="light"] .mob-device-btn.mob-device-active { background: #ede9ff
 
 /* ── Copy report button ── */
 .btn-copy-report {
+  flex: 1;
   background: none;
   border: 1px solid var(--border2);
-  border-radius: 5px; padding: 2px 7px;
-  font-size: 10.5px; color: var(--text-mute); cursor: pointer;
-  font-family: inherit; white-space: nowrap;
+  border-radius: 5px;
+  padding: 5px 0;
+  font-size: 11px;
+  color: var(--text-sub);
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  text-align: center;
 }
 .btn-copy-report:hover { background: var(--surface2); color: var(--text); }
 

@@ -987,12 +987,14 @@ function render(data) {
   const badgeLabel = allIssues === 0 ? "✓ No issues" : `${allIssues} issue${allIssues !== 1 ? "s" : ""} found`;
 
   html += `<div class="summary-bar">
-    <div class="summary-left">
-      <span class="badge ${badgeClass}">${badgeLabel}</span>
-      <span class="summary-meta">${formsFound} component${formsFound !== 1 ? "s" : ""}</span>
-    </div>
-    <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+    <div class="summary-top">
+      <div class="summary-left">
+        <span class="badge ${badgeClass}">${badgeLabel}</span>
+        <span class="summary-meta">${formsFound} component${formsFound !== 1 ? "s" : ""}</span>
+      </div>
       <span class="summary-meta">${escHtml(domain)}</span>
+    </div>
+    <div class="summary-actions">
       <button class="btn-copy-report" id="btn-copy-report" title="Copy full diagnostic report to clipboard">📋 Copy Report</button>
       <button class="btn-export-json" id="btn-export-json" title="Download scan results as CSV">⬇ Export</button>
     </div>
