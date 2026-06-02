@@ -2250,11 +2250,28 @@ const DOB_SELECTORS = [
   'input[placeholder*="DOB" i]',
 ].join(",");
 
+// NEXT_BTN_SELECTORS: used to advance between steps (step 1 → step 2).
+// Prefers explicit "next" signals over generic submit so we don't accidentally
+// fire the final submit button when still on step 1.
 const NEXT_BTN_SELECTORS = [
-  'input[type="submit"]',           // Klaviyo forms use input[type=submit], not button
+  'button[data-testid*="next" i]',
+  'button[class*="next" i]',
   'button[type="submit"]',
-  'button[data-testid*="submit" i]', 'button[data-testid*="next" i]',
-  'button[class*="submit" i]', 'button[class*="next" i]',
+  'input[type="submit"]',
+  'button[data-testid*="submit" i]',
+  'button[class*="submit" i]',
+  'div[role="button"][class*="submit" i]',
+].join(",");
+
+// SUBMIT_BTN_SELECTORS: used for the final submit on the last step.
+// Prefers explicit submit signals; falls back to any visible button.
+const SUBMIT_BTN_SELECTORS = [
+  'input[type="submit"]',
+  'button[type="submit"]',
+  'button[data-testid*="submit" i]',
+  'button[class*="submit" i]',
+  'button[data-testid*="next" i]',
+  'button[class*="next" i]',
   'div[role="button"][class*="submit" i]',
 ].join(",");
 
@@ -2676,9 +2693,21 @@ async function runTestSubmit(tabId, formId, externalResultEl = null) {
           (loaderScript.src.match(/\/onsite\/js\/([A-Za-z0-9]+)\/klaviyo\.js/) || [])[1]
         ) : null;
 
+        // phoneFilled: only true if the input is visible AND has a value after filling.
+        // Checking existence alone was the bug — Klaviyo pre-renders step 2's phone
+        // input in the DOM while step 1 is showing, so querySelector found it even
+        // though it wasn't visible or filled yet, causing needsStep2 to be false.
+        const livePhoneCheck = phone ? (formEl.querySelector(phoneSel) || phoneInput) : null;
+        const phoneIsVisible = livePhoneCheck ? (() => {
+          const s = window.getComputedStyle(livePhoneCheck);
+          const r = livePhoneCheck.getBoundingClientRect();
+          return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+        })() : false;
+        const phoneFilled = !!(phone && livePhoneCheck && phoneIsVisible && livePhoneCheck.value);
+
         return {
-          emailFilled: !!(emailInput && email),
-          phoneFilled: !!(phone && (formEl.querySelector(phoneSel) || phoneInput)),
+          emailFilled: !!(emailInput && email && emailInput.value),
+          phoneFilled,
           hasNextBtn:  !!nextBtn,
           companyId,
         };
@@ -2814,7 +2843,7 @@ async function runTestSubmit(tabId, formId, externalResultEl = null) {
 
   await chrome.scripting.executeScript({
     target: { tabId }, world: "MAIN",
-    func: (fid, nextSel) => {
+    func: (fid, submitSel) => {
       const formEl =
         document.querySelector(`[data-testid="klaviyo-form-${fid}"]`) ||
         document.querySelector(`[data-testid*="${fid}"]`) ||
@@ -2833,11 +2862,8 @@ async function runTestSubmit(tabId, formId, externalResultEl = null) {
           .sort((a, b) => b.area - a.area)[0]?.el || null;
       if (!formEl) return;
 
-      // 1. Try the standard submit selectors first.
-      // Note: Klaviyo forms use a hidden input[type="submit"] (display:none, 0×0) as their
-      // programmatic submission trigger. Clicking it via JS fires React's synthetic event
-      // system and fully submits the form — even though it is not visible to users.
-      const primary = formEl.querySelector(nextSel);
+      // 1. Try the final submit selectors (separate from Next-step selectors).
+      const primary = formEl.querySelector(submitSel);
       if (primary) { primary.click(); return; }
 
       // 2. Fallback: any visible button NOT inside the intl-tel-input country picker
@@ -2861,7 +2887,7 @@ async function runTestSubmit(tabId, formId, externalResultEl = null) {
         nativeForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
       }
     },
-    args: [formId, NEXT_BTN_SELECTORS],
+    args: [formId, SUBMIT_BTN_SELECTORS],
   }).catch(() => {});
 
   // ── Phase 1: passive poll — 10s window ───────────────────────────────────
