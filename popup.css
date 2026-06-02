@@ -533,30 +533,35 @@ body {
 /* ── DOM Breadcrumb ── */
 .dom-breadcrumb {
   display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 5px;
-  padding: 5px 10px 4px 10px;
+  flex-direction: column;
+  gap: 0;
   background: rgba(99,91,255,0.06);
+  border: 0.5px solid rgba(99,91,255,0.2);
   border-left: 2px solid var(--accent);
   margin: 0 10px 6px 10px;
   border-radius: 0 4px 4px 0;
+  overflow: hidden;
+}
+.dom-breadcrumb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  border-bottom: 0.5px solid rgba(99,91,255,0.15);
 }
 .dom-breadcrumb-label {
   font-size: 10px;
   font-weight: 600;
   color: var(--accent-hi);
   letter-spacing: 0.03em;
-  white-space: nowrap;
-  flex-shrink: 0;
 }
 .dom-breadcrumb-path {
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
-  font-size: 10.5px;
+  font-size: 10px;
   color: #c0caf5;
   word-break: break-all;
-  flex: 1;
-  line-height: 1.4;
+  line-height: 1.5;
+  padding: 6px 8px;
 }
 .btn-copy-path {
   background: none;

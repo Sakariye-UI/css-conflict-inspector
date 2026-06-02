@@ -1423,11 +1423,16 @@ function renderIssueWithWhere(issue, whereTag, ctx = {}) {
   }
 
   // ── DOM Breadcrumb — shows exactly where in the page this element lives ──
-  if (issue.domPath) {
+  // Only show element path when there's a confirmed readable CSS source —
+  // not for issues where we only found cross-origin or no sources at all.
+  const hasConfirmedSource = (issue.sources || []).some(s => !s.crossOrigin && !s.synthetic);
+  if (issue.domPath && hasConfirmedSource) {
     html += `<div class="dom-breadcrumb">
-      <span class="dom-breadcrumb-label">📍 Element path</span>
+      <div class="dom-breadcrumb-header">
+        <span class="dom-breadcrumb-label">Element path</span>
+        <button class="btn-copy-path" data-copy="${escHtml(issue.domPath)}" title="Copy path to clipboard">⧉ Copy</button>
+      </div>
       <span class="dom-breadcrumb-path">${escHtml(issue.domPath)}</span>
-      <button class="btn-copy-path" data-copy="${escHtml(issue.domPath)}" title="Copy path to clipboard">⧉ Copy</button>
     </div>`;
   }
 
