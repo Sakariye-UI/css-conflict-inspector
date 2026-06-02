@@ -1412,8 +1412,10 @@ function renderIssueWithWhere(issue, whereTag, ctx = {}) {
         ${issue.hasImportant ? `<span class="important-badge">!important</span>` : ""}
       </span>
       ${renderConfidence(displayConfidence)}${learnedTag}
-      ${fixBtn}
-      ${findSourceBtn}
+      <div class="issue-btn-group">
+        ${fixBtn}
+        ${findSourceBtn}
+      </div>
       <button class="btn-dismiss-issue" data-dismiss-key="${dismissKey}" title="Hide this warning (reappears on next scan)">✕</button>
     </div>`;
 
