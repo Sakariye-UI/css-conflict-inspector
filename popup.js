@@ -2780,8 +2780,41 @@ async function runTestSubmit(tabId, formId, externalResultEl = null) {
       },
       args: [formId, NEXT_BTN_SELECTORS],
     }).catch(() => {});
-    // Wait for step 2 to render
-    await new Promise(r => setTimeout(r, 950));
+
+    // Poll for step 2 to render — up to 4s, checking every 100ms.
+    // Use a fresh document.querySelector each tick because React unmounts
+    // and remounts the form element on step transition, making any cached
+    // reference stale. Fixed 950ms wait was too short on slow sites.
+    const pollStep2Start = Date.now();
+    let step2Ready = false;
+    while (Date.now() - pollStep2Start < 4000) {
+      await new Promise(r => setTimeout(r, 100));
+      const check = await chrome.scripting.executeScript({
+        target: { tabId }, world: "MAIN",
+        func: (fid, phoneSel) => {
+          const form =
+            document.querySelector(`[data-testid="klaviyo-form-${fid}"]`) ||
+            document.querySelector(`[data-testid*="${fid}"]`) ||
+            document.querySelector(`[data-form-id="${fid}"]`) ||
+            document.querySelector(`.klaviyo-form-${fid}`);
+          if (!form) return false;
+          const tel = form.querySelector(phoneSel);
+          if (!tel) return false;
+          let n = tel;
+          while (n && n !== document.body) {
+            const s = window.getComputedStyle(n);
+            if (s.display === 'none' || s.visibility === 'hidden') return false;
+            n = n.parentElement;
+          }
+          return true;
+        },
+        args: [formId, PHONE_SELECTORS],
+      }).catch(() => null);
+      if (check?.[0]?.result) { step2Ready = true; break; }
+    }
+    // Brief settle buffer after step 2 is detected — React may still be
+    // committing state updates after the ancestor-visibility check passes.
+    if (step2Ready) await new Promise(r => setTimeout(r, 300));
   };
 
   // ── Step 1 ────────────────────────────────────────────────────────────────
