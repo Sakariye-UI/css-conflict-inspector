@@ -1570,36 +1570,26 @@ function buildCustomerMessage(form) {
   lines.push("");
   lines.push("Thanks for reaching out. My name is {{current_user.first_name}}.");
   lines.push("");
-  lines.push(`Support is limited when it comes to custom CSS/theme-level changes. From what I can see, the issue with your Klaviyo ${type} is being caused by CSS in your site's theme overriding the ${type}'s default styling. This is not coming from Klaviyo, so a developer or theme provider will need to adjust it.`);
+  lines.push(`Support is somewhat limited when it comes to custom CSS or theme-level styling changes. From my review, the issue with your Klaviyo ${type} appears to be caused by CSS from your site's theme overriding the ${type}'s default styling. Because this styling is coming from your website rather than Klaviyo, a developer or your theme provider will need to make the necessary adjustment.`);
   lines.push("");
-  lines.push("Here's what's happening:");
 
   grouped.forEach((issue, idx) => {
-    const src = (issue.sources || []).find(s => !s.crossOrigin);
-    lines.push("");
-
-    // Issue heading — label + explain in one line
-    const explain = issue.explain ? ` ${issue.explain}` : "";
-    lines.push(`Issue ${grouped.length > 1 ? `${idx + 1} — ` : "— "}${issue.label}${issue.hasImportant ? " (!important)" : ""}${explain}`);
-
-    // Conflicting CSS block
-    if (src) {
-      const important = src.important ? " !important" : "";
-      lines.push("");
-      lines.push("Conflicting CSS:");
-      lines.push("");
-      lines.push("```");
-      lines.push(`${src.selector} {`);
-      lines.push(`  ${issue.property}: ${src.value}${important};`);
-      lines.push(`}`);
-      lines.push("```");
-      lines.push("");
-      lines.push(`Source: ${src.source}`);
+    lines.push(`Issue${grouped.length > 1 ? ` ${idx + 1}` : ""} — ${issue.label}${issue.hasImportant ? " (!important)" : ""}`);
+    if (issue.explain) {
+      lines.push(issue.explain);
     }
+    lines.push("");
   });
 
+  lines.push(`Once the conflicting CSS is updated, the ${type} should display and function as expected.`);
   lines.push("");
-  lines.push(`Once this CSS is adjusted or scoped properly, the ${type} should display correctly. If the issue continues after that, feel free to reply and we'll take another look.`);
+  lines.push("If you have any questions or continue experiencing issues after the change has been made, please feel free to reply and we'll be happy to take another look.");
+  lines.push("");
+  lines.push("Have a great day!");
+  lines.push("");
+  lines.push("Best,");
+  lines.push("{{current_user.first_name}}");
+  lines.push("Klaviyo Support");
 
   return lines.join("\n");
 }
@@ -1613,26 +1603,21 @@ function renderCustomerMessage(form, formIdx) {
 
   let body = `Hi {{ticket.requester.first_name}},\n\n`;
   body += `Thanks for reaching out. My name is {{current_user.first_name}}.\n\n`;
-  body += `Support is limited when it comes to custom CSS/theme-level changes. From what I can see, the issue with your Klaviyo <strong>${type}</strong> is being caused by CSS in your site's theme overriding the ${type}'s default styling. This is not coming from Klaviyo, so a developer or theme provider will need to adjust it.\n\n`;
-  body += `<strong>Here's what's happening:</strong>\n`;
+  body += `Support is somewhat limited when it comes to custom CSS or theme-level styling changes. From my review, the issue with your Klaviyo <strong>${type}</strong> appears to be caused by CSS from your site's theme overriding the ${type}'s default styling. Because this styling is coming from your website rather than Klaviyo, a developer or your theme provider will need to make the necessary adjustment.\n\n`;
 
   grouped.forEach((issue, idx) => {
-    const src = (issue.sources || []).find(s => !s.crossOrigin);
-    const explain = issue.explain ? ` ${escHtml(issue.explain)}` : "";
-
-    body += `\n<hr class="msg-divider">`;
-    body += `<span class="msg-section-label">Issue${count > 1 ? ` ${idx + 1}` : ""} — ${escHtml(issue.label)}${issue.hasImportant ? " <code>!important</code>" : ""}</span>`;
-    body += `<span class="msg-issue-explain">${explain}</span>\n`;
-
-    if (src) {
-      const important = src.important ? " !important" : "";
-      body += `\n<strong>Conflicting CSS:</strong>\n`;
-      body += `<pre class="msg-code-block">${escHtml(src.selector)} {\n  ${escHtml(issue.property)}: ${escHtml(src.value)}${escHtml(important)};\n}</pre>`;
-      body += `\n<span class="msg-source-line">Source: <code class="msg-file-badge">${escHtml(src.source)}</code></span>`;
+    body += `<hr class="msg-divider">`;
+    body += `<span class="msg-section-label">Issue${count > 1 ? ` ${idx + 1}` : ""} — ${escHtml(issue.label)}${issue.hasImportant ? " <code>!important</code>" : ""}</span>\n`;
+    if (issue.explain) {
+      body += `<span class="msg-issue-explain">${escHtml(issue.explain)}</span>\n`;
     }
   });
 
-  body += `\n<hr class="msg-divider">Once this CSS is adjusted or scoped properly, the ${type} should display correctly. If the issue continues after that, feel free to reply and we'll take another look.`;
+  body += `<hr class="msg-divider">`;
+  body += `Once the conflicting CSS is updated, the ${type} should display and function as expected.\n\n`;
+  body += `If you have any questions or continue experiencing issues after the change has been made, please feel free to reply and we'll be happy to take another look.\n\n`;
+  body += `Have a great day!\n\n`;
+  body += `<strong>Best,\n{{current_user.first_name}}\nKlaviyo Support</strong>`;
 
   return `
     <div class="customer-msg-wrap">
