@@ -1443,9 +1443,12 @@ function renderIssueWithWhere(issue, whereTag, ctx = {}) {
     html += `<div class="css-sources"><div class="css-sources-label">📄 Caused by this CSS rule:</div>`;
     issue.sources.forEach(src => {
       if (src.crossOrigin) {
-        html += `<div class="css-source-row css-source-synthetic">
+        const crossLabel = src.isShopifyKlaviyoApp
+          ? ` — ⚠️ Klaviyo app CSS on Shopify CDN (can't inspect — CORS blocked)`
+          : ` — cross-origin, can't read rules`;
+        html += `<div class="css-source-row css-source-synthetic${src.isShopifyKlaviyoApp ? " css-source-klaviyo-app" : ""}">
           <span class="css-src-file css-src-cross-origin">${escHtml(src.source)}</span>
-          <span class="css-src-cross"> — cross-origin, can't read rules</span>
+          <span class="css-src-cross">${crossLabel}</span>
           ${src.syntheticNote ? `<br><span class="css-src-synthetic-note">${escHtml(src.syntheticNote)}</span>` : ""}
         </div>`;
       } else {

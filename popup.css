@@ -1493,6 +1493,8 @@ body[data-theme="light"] .mob-device-btn.mob-device-active { background: #ede9ff
 .css-source-synthetic { opacity: 0.75; }
 .css-src-cross-origin { font-style: italic; }
 .css-src-synthetic-note { color: var(--text-mute); font-size: 10px; font-style: italic; }
+/* Klaviyo app CSS on Shopify CDN — highlight as a known named blind spot */
+.css-source-klaviyo-app { opacity: 1; border-left: 2px solid var(--yellow, #fbbf24); padding-left: 6px; }
 
 /* @layer annotation */
 .css-src-layer { color: #818cf8; font-size: 10px; font-style: italic; }

@@ -521,14 +521,23 @@
       try { rules = sheet.cssRules || sheet.rules; }
       catch (_) {
         // Step 16: synthetic source entry with DevTools guidance
+        const href = sheet.href || "";
+        // Identify Klaviyo's own app CSS hosted on Shopify's CDN — a known blind
+        // spot seen on many Shopify stores. It's a Klaviyo-owned file but served
+        // cross-origin so its rules can't be read from JS.
+        const isShopifyKlaviyoApp = /cdn\.shopify\.com.*klaviyo/i.test(href);
+        const syntheticNote = isShopifyKlaviyoApp
+          ? "This is Klaviyo's own app CSS hosted on Shopify's CDN (klaviyo-email-marketing/assets/app.css). It cannot be read by the extension due to CORS. To inspect it, open Chrome DevTools → Network tab → filter by 'app.css' → open the file in Sources and search for conflicting selectors."
+          : "This stylesheet is served from a different origin and cannot be read by the extension. To inspect it, open Chrome DevTools → Sources, navigate to the stylesheet, and search for the property manually.";
         sources.push({
-          source: sheet.href ? new URL(sheet.href).pathname : "inline <style>",
+          source: href ? new URL(href).pathname : "inline <style>",
           selector: "(cross-origin — cannot inspect)",
           value: null,
           important: false,
           crossOrigin: true,
           synthetic: true,
-          syntheticNote: "This stylesheet is served from a different origin and cannot be read by the extension. To inspect it, open Chrome DevTools → Sources, navigate to the stylesheet, and search for the property manually.",
+          isShopifyKlaviyoApp,
+          syntheticNote,
         });
         continue;
       }
@@ -975,6 +984,66 @@
       }
     }
 
+    // ── :empty rule check ────────────────────────────────────
+    // Detects the saucetown.co pattern: a site rule like `div:empty { display:none }`
+    // fires against Klaviyo's outer wrapper while it's momentarily empty during
+    // React DOM hydration, hiding the form before content is injected.
+    // We check the element and its immediate ancestors for the pattern:
+    // computed display:none AND element has no children (or very few — React may
+    // have injected a placeholder comment node).
+    {
+      let emptyNode = el;
+      let emptyLevels = 0;
+      while (emptyNode && emptyLevels < 5) {
+        const isEmpty = emptyNode.children.length === 0;
+        const isHidden = window.getComputedStyle(emptyNode).display === "none";
+        if (isEmpty && isHidden) {
+          // Confirm a site stylesheet has a rule using :empty that can match this element
+          const emptyRules = [];
+          for (const sheet of document.styleSheets) {
+            try {
+              for (const rule of (sheet.cssRules || [])) {
+                if (rule.selectorText && rule.selectorText.includes(":empty") &&
+                    rule.style && rule.style.display === "none") {
+                  try {
+                    // Strip :empty and test if the base selector matches the node
+                    const base = rule.selectorText.replace(/:empty/g, "").trim();
+                    if (base && emptyNode.matches(base)) {
+                      emptyRules.push({
+                        source:   sheet.href ? new URL(sheet.href).pathname.split("/").pop() : "inline <style>",
+                        selector: rule.selectorText,
+                        value:    "none",
+                        important: rule.style.getPropertyPriority("display") === "important",
+                      });
+                    }
+                  } catch (_) {}
+                }
+              }
+            } catch (_) {}
+          }
+          if (emptyRules.length) {
+            issues.push({
+              severity:  "critical",
+              label:     `div:empty { display:none } hides form during load`,
+              explain:   `The site's CSS hides empty elements (${emptyRules[0].selector}). Klaviyo's form wrapper starts empty while its content is being built — this rule fires and hides it before the form content is injected. The form may flash hidden or never appear. Ask the site developer to scope the :empty rule away from Klaviyo wrappers, or add a CSS override: [class*="kl-private-reset-css"] { display: block !important; }`,
+              property:  "display",
+              computedValue: "none",
+              sources:   emptyRules,
+              confidence: 5,
+              hasImportant: emptyRules.some(s => s.important),
+              themeMatch: null,
+              fixId:     _regFix(emptyNode, "display"),
+              fixSelector: _fixReg.get(_fixId)?.sel || "",
+              domPath:   getDomBreadcrumb(emptyNode),
+            });
+            break;
+          }
+        }
+        emptyNode = emptyNode.parentElement;
+        emptyLevels++;
+      }
+    }
+
     // Ancestor overflow clipping
     let ancestor = el.parentElement;
     let ancestorLevel = 0;
@@ -1122,10 +1191,22 @@
 
   function _isKlaviyoSource(src) {
     if (!src || !src.source) return false;
-    if (src.source === "inline <style>") return true;
+    // External Klaviyo stylesheet (klaviyo.com domain)
     if (src.source.includes("klaviyo")) return true;
-    // Klaviyo's generated triple-class selectors look like .go219079318.go219079318
+    // Klaviyo's generated triple-class selectors (.go219079318.go219079318.go219079318)
     if (src.selector && /\.go\d{5,}/.test(src.selector)) return true;
+    // kl-private-reset class — only appears in Klaviyo's own CSS
+    if (src.selector && src.selector.includes("kl-private-reset")) return true;
+    // Inline <style> — only treat as Klaviyo if content has Klaviyo signatures.
+    // Do NOT blanket-classify all inline blocks as Klaviyo: third-party apps
+    // (Shopify apps, accessibility widgets, search tools) also inject inline
+    // style blocks and their rules can conflict with Klaviyo elements.
+    if (src.source === "inline <style>") {
+      // If we have the selector, check it for Klaviyo patterns
+      if (src.selector && /\.go\d{5,}|kl-private-reset|klaviyo/i.test(src.selector)) return true;
+      // Otherwise treat inline as site CSS (conservative — avoids false negatives)
+      return false;
+    }
     return false;
   }
 
@@ -1181,17 +1262,36 @@
 
       const fixSuggestion = `.klaviyo-form-button { ${kebab}: ${klaviyoIntended} !important; }`;
 
+      // ── Intentional override detection ──────────────────────
+      // If the button has a ::after pseudo-element with real content (e.g. an
+      // SVG arrow replacing the label text), the font-size:0 / color:transparent
+      // trick is a deliberate design choice by the merchant — not a broken form.
+      // Lower severity to "info" and flag it as intentional rather than a conflict.
+      const afterContent = window.getComputedStyle(btn, "::after").content;
+      const hasAfterContent = afterContent && afterContent !== "none" && afterContent !== '""' && afterContent !== "''";
+      const isIntentionalDesign = hasAfterContent && (
+        (kebab === "color"            && (computedVal === "transparent" || computedVal === "rgba(0, 0, 0, 0)")) ||
+        (kebab === "background-color" && (computedVal === "transparent" || computedVal === "rgba(0, 0, 0, 0)"))
+      );
+      // Also flag font-size:0 + ::after as intentional
+      const fontSize = window.getComputedStyle(btn).fontSize;
+      const isZeroFontSizeWithAfter = hasAfterContent && fontSize === "0px";
+
       const btnFixId = _regFix(btn, kebab);
       issues.push({
-        severity:       "warning",
-        label,
-        explain:        `Klaviyo set this button's ${kebab} to ${klaviyoIntended}, but the site's theme CSS is overriding it to ${computedVal}${specNote}. The theme selector has higher CSS specificity than Klaviyo's own button styles.`,
+        severity:       (isIntentionalDesign || isZeroFontSizeWithAfter) ? "info" : "warning",
+        label:          (isIntentionalDesign || isZeroFontSizeWithAfter)
+                          ? `${label} — intentional design override`
+                          : label,
+        explain:        (isIntentionalDesign || isZeroFontSizeWithAfter)
+                          ? `The site has replaced Klaviyo's button text/style with a CSS ::after pseudo-element (e.g. an SVG icon). The ${kebab} override (${computedVal}) is a deliberate design choice — the button is functional but styled differently from Klaviyo's default. No action needed unless the button is not clickable.`
+                          : `Klaviyo set this button's ${kebab} to ${klaviyoIntended}, but the site's theme CSS is overriding it to ${computedVal}${specNote}. The theme selector has higher CSS specificity than Klaviyo's own button styles.`,
         property:       kebab,
         computedValue:  computedVal,
         klaviyoIntended,
         fixSuggestion,
         sources:        siteSources,
-        confidence:     4,
+        confidence:     (isIntentionalDesign || isZeroFontSizeWithAfter) ? 2 : 4,
         hasImportant:   siteSources.some(s => s.important),
         themeMatch:     null,
         fixId:          btnFixId,
@@ -1436,12 +1536,21 @@
       if (conflictingSources.length === 0 && !buttonIsCovered) return issues;
 
       const worstSrc = conflictingSources[0];
+      // Check if the source looks like a third-party app (chat widget, cookie
+      // banner, etc.) rather than the site's own theme CSS — common real-world
+      // example: Shopify Inbox injects `.needsclick { z-index: 2147483643 !important }`
+      // for its chat widget, which unintentionally applies to Klaviyo forms too.
+      const isThirdPartyApp = worstSrc && (
+        /shopify|tidio|gorgias|zendesk|intercom|freshchat|drift|crisp|tawk|widget/i.test(worstSrc.source)
+        || worstSrc.source === "inline <style>"
+      );
       const explain = worstSrc
-        ? `A site stylesheet applies \`z-index: ${worstSrc.value}${worstSrc.important ? " !important" : ""}\` to \`${worstSrc.selector}\`. ` +
-          `Because Klaviyo's close button also carries this class, every sibling element inside the form ends up with the same z-index. ` +
-          `CSS then falls back to DOM paint order — form content (which appears later in the DOM than the close button) is painted on top of the X button, hiding it completely.`
+        ? `A ${isThirdPartyApp ? "third-party app or chat widget" : "site stylesheet"} applies \`z-index: ${worstSrc.value}${worstSrc.important ? " !important" : ""}\` to \`${worstSrc.selector}\` (source: ${worstSrc.source}). ` +
+          `Because Klaviyo's close button also uses this class, every element inside the form gets the same z-index. ` +
+          `CSS falls back to DOM paint order — form content (later in the DOM than the close button) is painted over the ✕ button, hiding it. ` +
+          (isThirdPartyApp ? `This is coming from a third-party app, not the site theme — the merchant may need to contact that app's support to scope the rule away from Klaviyo elements.` : ``)
         : `The close button appears to be painted behind form content. ` +
-          `A site rule may be collapsing the z-index stacking order inside the Klaviyo form overlay.`;
+          `A site rule or third-party app script (e.g. a chat widget) may be applying a z-index to .needsclick that collapses the stacking order inside the Klaviyo form overlay.`;
 
       // Register a preview-fix entry so the "👁 Preview Fix" button is enabled
       const closeBtnFixId = _regFix(closeBtn, "z-index");
