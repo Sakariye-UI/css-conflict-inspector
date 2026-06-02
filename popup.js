@@ -324,8 +324,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   // ── Init HAR macro panel ──
   initHarPanel();
 
-  // Pick result area starts hidden — shown when a result arrives
-  if (pickResultArea) pickResultArea.style.display = 'none';
+  // Pick result area starts hidden — only hide it if we didn't just render a result into it
+  if (pickResultArea && !stored.klvPickResult) pickResultArea.style.display = 'none';
 });
 
 // ── Live update when background Force Open (ignore rules) finishes ────────────
