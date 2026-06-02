@@ -1046,24 +1046,17 @@ function render(data) {
 
   // ── HAR file suggestion card (always shown) ──────────────
   html += `<div class="har-suggest-card" id="har-suggest-card">
-    <div class="har-suggest-left">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;margin-top:2px;color:#f59e0b">
-        <circle cx="12" cy="12" r="2.5" stroke="currentColor" stroke-width="2"/>
-        <path d="M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        <path d="M5 12c0-2 1.5-4 3-4M8 8c1-1.5 2.5-2 4-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        <path d="M19 12c0-2-1.5-4-3-4M16 8c-1-1.5-2.5-2-4-2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <div class="har-suggest-icon">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
-      <div class="har-suggest-text">
-        <span class="har-suggest-title">Can't reproduce the issue?</span>
-        <span class="har-suggest-body">If you can't reproduce the issue, the customer's HAR file often shows what a browser scan can't: failed requests, blocked assets, and timing problems.</span>
-      </div>
     </div>
-    <button class="har-suggest-btn" id="har-suggest-open">
-      Request HAR File
-      <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
-        <path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </button>
+    <div class="har-suggest-text">
+      <span class="har-suggest-title">Can't reproduce the issue?</span>
+      <span class="har-suggest-body">The customer's HAR file shows failed requests and timing issues a scan can't catch.</span>
+    </div>
+    <button class="har-suggest-btn" id="har-suggest-open">Request HAR File</button>
   </div>`;
 
   // ── Component cards ──

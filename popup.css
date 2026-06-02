@@ -480,10 +480,11 @@ body {
   margin-bottom: 6px;
   overflow: hidden;
   border: 1px solid transparent;
+  border-left-width: 3px;
 }
-.issue-item.critical { border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.07); }
-.issue-item.warning  { border-color: rgba(251,191,36,0.3);  background: rgba(251,191,36,0.06); }
-.issue-item.info     { border-color: rgba(99,91,255,0.3);   background: rgba(99,91,255,0.07); }
+.issue-item.critical { border-color: rgba(248,113,113,0.25); border-left-color: var(--red);    background: rgba(248,113,113,0.06); }
+.issue-item.warning  { border-color: rgba(251,191,36,0.25);  border-left-color: var(--yellow); background: rgba(251,191,36,0.05); }
+.issue-item.info     { border-color: rgba(99,91,255,0.25);   border-left-color: var(--accent); background: rgba(99,91,255,0.06); }
 
 .issue-header {
   display: flex;
@@ -1462,9 +1463,13 @@ body[data-theme="light"] .mob-device-btn.mob-device-active { background: #ede9ff
 
 /* ── Confidence dots ── */
 .conf-bar { display: inline-flex; gap: 2px; align-items: center; margin-left: 4px; vertical-align: middle; flex-shrink: 0; }
-.conf-dot { font-size: 9px; line-height: 1; }
-.conf-dot-on  { color: var(--accent); }
-.conf-dot-off { color: var(--border2); }
+.conf-dot { width: 14px; height: 4px; border-radius: 2px; display: inline-block; }
+.conf-dot-on  { background: var(--accent); opacity: 0.85; }
+.conf-dot-off { background: var(--border2); }
+/* Confidence bar segments match severity accent colour */
+.issue-item.critical .conf-dot-on { background: var(--red); }
+.issue-item.warning  .conf-dot-on { background: var(--yellow); }
+.issue-item.info     .conf-dot-on { background: var(--accent); }
 
 /* ── Theme badge ── */
 .theme-badge-row { display: flex; align-items: flex-start; gap: 6px; padding: 3px 10px 4px 28px; flex-wrap: wrap; }
@@ -3114,45 +3119,45 @@ body[data-theme="light"] .nav-item[data-tooltip]:hover::after { background: #fff
 /* ══ HAR SUGGESTION CARD (scan results) ══ */
 .har-suggest-card {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
+  align-items: center;
+  gap: 12px;
   margin: 10px 12px;
-  padding: 12px 14px;
+  padding: 10px 12px;
   background: rgba(245,158,11,0.07);
-  border: 1px solid rgba(245,158,11,0.3);
+  border: 1px solid rgba(245,158,11,0.25);
   border-radius: 10px;
 }
-.har-suggest-left {
+.har-suggest-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(245,158,11,0.15);
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #f59e0b;
 }
 .har-suggest-text {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
+  flex: 1;
   min-width: 0;
 }
 .har-suggest-title {
   font-size: 12px;
   font-weight: 700;
   color: #f59e0b;
-  white-space: nowrap;
 }
 .har-suggest-body {
   font-size: 11px;
   color: var(--text-mute);
-  line-height: 1.55;
+  line-height: 1.45;
 }
 .har-suggest-btn {
-  display: flex;
-  align-items: center;
-  gap: 5px;
   flex-shrink: 0;
-  padding: 6px 11px;
+  padding: 6px 12px;
   background: #d97706;
   border: none;
   border-radius: 7px;
@@ -3163,11 +3168,10 @@ body[data-theme="light"] .nav-item[data-tooltip]:hover::after { background: #fff
   font-family: inherit;
   white-space: nowrap;
   transition: background 0.15s;
-  align-self: center;
 }
 .har-suggest-btn:hover { background: #b45309; }
 
-body[data-theme="light"] .har-suggest-card { background: rgba(245,158,11,0.06); border-color: rgba(245,158,11,0.35); }
+body[data-theme="light"] .har-suggest-card { background: rgba(245,158,11,0.06); border-color: rgba(245,158,11,0.3); }
 body[data-theme="light"] .har-suggest-body { color: #64748b; }
 
 /* ══ HAR HISTORY CARDS (History → HAR Captures tab) ══ */
