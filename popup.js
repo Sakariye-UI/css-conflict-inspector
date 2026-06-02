@@ -228,6 +228,8 @@ settingsWrap.addEventListener("toggle", () => {
 // button shows as a toggle even if the popup was closed and reopened.
 document.addEventListener("DOMContentLoaded", async () => {
   const [tab]  = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => [null]);
+  // Store tabId so content script can pass it back in openPopup messages.
+  if (tab) chrome.storage.local.set({ klvTabId: tab.id });
   const stored = await chrome.storage.local.get(["klvPickResult", "klvPickMode", "klvHistory", "klvLastScan", "klvManualInputs", "klvManualOpen", "klvSettingsOpen", "klvForceOverrideResult"]);
 
   // Render history panel (always, if there is any) — always starts collapsed
@@ -297,6 +299,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     setPickBtnActive(true);
     document.getElementById('nav-pick')?.click();
     showPickHint();
+    // Re-arm the content script — it resets on page refresh so pick mode
+    // would appear active in the UI but do nothing without this re-send.
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => [null]);
+    if (tab) {
+      try { await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] }); } catch (_) {}
+      chrome.tabs.sendMessage(tab.id, { action: "startPick" }).catch(() => {});
+    }
   } else if (stored.klvLastScan) {
     // Restore last scan results regardless of current URL — results persist until user clicks Scan Page again
     render(stored.klvLastScan.data);

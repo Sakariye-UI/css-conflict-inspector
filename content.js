@@ -2039,6 +2039,9 @@
     // Always clean up — do not guard on pickActive.
     // If listeners were added they must be removed regardless of state.
     pickActive = false;
+    // Clear storage flag so popup doesn't think pick is still armed
+    // when the cancel banner is clicked and the popup is closed.
+    chrome.storage.local.set({ klvPickMode: false });
     document.removeEventListener("mousemove", onPickMove,    true);
     document.removeEventListener("mouseover", onPickMove,    true);
     document.removeEventListener("click",     onPickClick,   true);
@@ -2171,9 +2174,13 @@
       };
     }
 
-    // Save result, clear pick mode flag, ask background to reopen popup
-    chrome.storage.local.set({ klvPickResult: result, klvPickMode: false }, () => {
-      chrome.runtime.sendMessage({ action: "openPopup" }, () => void chrome.runtime.lastError);
+    // Save result, clear pick mode flag, ask background to reopen popup.
+    // Pass tabId explicitly — background.js falls back to sender.tab.id but
+    // sidePanel.open() is async and the fallback can silently fail on some builds.
+    chrome.storage.local.get("klvTabId", ({ klvTabId }) => {
+      chrome.storage.local.set({ klvPickResult: result, klvPickMode: false }, () => {
+        chrome.runtime.sendMessage({ action: "openPopup", tabId: klvTabId }, () => void chrome.runtime.lastError);
+      });
     });
 
     // Brief on-page toast in case openPopup fails on older Chrome
