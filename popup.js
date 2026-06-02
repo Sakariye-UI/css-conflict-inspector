@@ -1570,7 +1570,7 @@ function buildCustomerMessage(form) {
   lines.push("");
   lines.push("Thanks for reaching out. My name is {{current_user.first_name}}.");
   lines.push("");
-  lines.push(`Support is somewhat limited when it comes to custom CSS or theme-level styling changes. From my review, the issue with your Klaviyo ${type} appears to be caused by CSS from your site's theme overriding the ${type}'s default styling. Because this styling is coming from your website rather than Klaviyo, a developer or your theme provider will need to make the necessary adjustment.`);
+  lines.push(`Support is limited when it comes to custom CSS/theme-level changes. From what I can see, the issue with your Klaviyo ${type} is being caused by CSS in your site's theme overriding the ${type}'s default styling. Because this styling is coming from your website rather than Klaviyo, a developer or your theme provider will need to make the necessary adjustment.`);
   lines.push("");
 
   grouped.forEach((issue, idx) => {
@@ -1603,7 +1603,7 @@ function renderCustomerMessage(form, formIdx) {
 
   let body = `Hi {{ticket.requester.first_name}},\n\n`;
   body += `Thanks for reaching out. My name is {{current_user.first_name}}.\n\n`;
-  body += `Support is somewhat limited when it comes to custom CSS or theme-level styling changes. From my review, the issue with your Klaviyo <strong>${type}</strong> appears to be caused by CSS from your site's theme overriding the ${type}'s default styling. Because this styling is coming from your website rather than Klaviyo, a developer or your theme provider will need to make the necessary adjustment.\n\n`;
+  body += `Support is limited when it comes to custom CSS/theme-level changes. From what I can see, the issue with your Klaviyo <strong>${type}</strong> is being caused by CSS in your site's theme overriding the ${type}'s default styling. Because this styling is coming from your website rather than Klaviyo, a developer or your theme provider will need to make the necessary adjustment.\n\n`;
 
   grouped.forEach((issue, idx) => {
     body += `<hr class="msg-divider">`;
