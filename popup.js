@@ -2905,6 +2905,17 @@ async function runTestSubmit(tabId, formId, externalResultEl = null) {
     <button class="tpc-edit-inline" data-field="phone" style="background:none;border:none;padding:0;cursor:pointer;font-size:11px;color:#635bff;text-decoration:underline;">Change phone</button>
   </span>`;
 
+  // ── Reset submission detector before final submit ────────────────────────
+  // On multi-step forms Klaviyo fires an API call when the user advances from
+  // step 1 (email) to step 2 — the PerformanceObserver catches that early call
+  // and marks __klvSubmitCapture.done=true. Without this reset the polling loop
+  // below would see done=true immediately and report false success before the
+  // phone number is ever submitted.
+  await chrome.scripting.executeScript({
+    target: { tabId }, world: "MAIN",
+    func: () => { window.__klvSubmitCapture = { done: false }; },
+  }).catch(() => {});
+
   // ── Click the form's Submit button ────────────────────────────────────────
   // Let Klaviyo's own SDK handle the API call — it already knows the list_id,
   // consent channels, form version, etc. We just observe the result.
