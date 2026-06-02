@@ -488,15 +488,29 @@ body {
 
 .issue-header {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 6px;
-  padding: 6px 10px;
-  flex-wrap: wrap;
+  padding: 8px 10px;
 }
 
-.severity-icon { font-size: 12px; flex-shrink: 0; }
+.severity-icon { display: none; } /* left bar now carries severity — icon removed */
 
-.issue-label { font-size: 12px; font-weight: 600; flex: 1; min-width: 0; }
+/* Top row: issue name + dismiss */
+.issue-name-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.issue-label { font-size: 12px; font-weight: 600; flex: 1; min-width: 0; line-height: 1.35; }
+
+/* Bottom row: confidence + buttons */
+.issue-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 
 /* Keeps Preview Fix + Find Source always together and never clipped */
 .issue-btn-group {

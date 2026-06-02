@@ -1046,12 +1046,6 @@ function render(data) {
 
   // ── HAR file suggestion card (always shown) ──────────────
   html += `<div class="har-suggest-card" id="har-suggest-card">
-    <div class="har-suggest-icon">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </div>
     <div class="har-suggest-text">
       <span class="har-suggest-title">Can't reproduce the issue?</span>
       <span class="har-suggest-body">The customer's HAR file shows failed requests and timing issues a scan can't catch.</span>
@@ -1399,17 +1393,20 @@ function renderIssueWithWhere(issue, whereTag, ctx = {}) {
 
   let html = `<div class="issue-item ${issue.severity}" data-dismiss-key="${dismissKey}">
     <div class="issue-header">
-      <span class="severity-icon">${icon}</span>
-      <span class="issue-label">
-        <code>${escHtml(issue.label)}</code>
-        ${issue.hasImportant ? `<span class="important-badge">!important</span>` : ""}
-      </span>
-      ${renderConfidence(displayConfidence)}${learnedTag}
-      <div class="issue-btn-group">
-        ${fixBtn}
-        ${findSourceBtn}
+      <div class="issue-name-row">
+        <span class="issue-label">
+          <code>${escHtml(issue.label)}</code>
+          ${issue.hasImportant ? `<span class="important-badge">!important</span>` : ""}
+        </span>
+        <button class="btn-dismiss-issue" data-dismiss-key="${dismissKey}" title="Hide this warning (reappears on next scan)">✕</button>
       </div>
-      <button class="btn-dismiss-issue" data-dismiss-key="${dismissKey}" title="Hide this warning (reappears on next scan)">✕</button>
+      <div class="issue-meta-row">
+        ${renderConfidence(displayConfidence)}${learnedTag}
+        <div class="issue-btn-group">
+          ${fixBtn}
+          ${findSourceBtn}
+        </div>
+      </div>
     </div>`;
 
   if (issue.themeMatch) {
