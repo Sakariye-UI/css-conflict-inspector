@@ -2693,22 +2693,39 @@ async function runTestSubmit(tabId, formId, externalResultEl = null) {
           (loaderScript.src.match(/\/onsite\/js\/([A-Za-z0-9]+)\/klaviyo\.js/) || [])[1]
         ) : null;
 
-        // phoneFilled: only true if the input is visible AND has a value after filling.
-        // Checking existence alone was the bug — Klaviyo pre-renders step 2's phone
-        // input in the DOM while step 1 is showing, so querySelector found it even
-        // though it wasn't visible or filled yet, causing needsStep2 to be false.
+        // phoneFilled: only true if the input is on a visible step AND has a value.
+        // Walk ancestors to detect hidden future steps — Klaviyo pre-renders step 2
+        // in the DOM while step 1 is showing. Don't use width/height — Klaviyo's
+        // flex country picker layout can give 0 width even on the active step.
         const livePhoneCheck = phone ? (formEl.querySelector(phoneSel) || phoneInput) : null;
         const phoneIsVisible = livePhoneCheck ? (() => {
-          const s = window.getComputedStyle(livePhoneCheck);
-          const r = livePhoneCheck.getBoundingClientRect();
-          return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+          let el = livePhoneCheck;
+          while (el && el !== document.body) {
+            const s = window.getComputedStyle(el);
+            if (s.display === 'none' || s.visibility === 'hidden') return false;
+            el = el.parentElement;
+          }
+          return true;
         })() : false;
         const phoneFilled = !!(phone && livePhoneCheck && phoneIsVisible && livePhoneCheck.value);
+
+        // hasNextBtn: only true if a visible next button exists.
+        // Hidden input[type="submit"] (common in Klaviyo) must not count.
+        const nextBtnVisible = nextBtn ? (() => {
+          let el = nextBtn;
+          while (el && el !== document.body) {
+            const s = window.getComputedStyle(el);
+            if (s.display === 'none' || s.visibility === 'hidden') return false;
+            el = el.parentElement;
+          }
+          const r = nextBtn.getBoundingClientRect();
+          return r.width > 0 && r.height > 0;
+        })() : false;
 
         return {
           emailFilled: !!(emailInput && email && emailInput.value),
           phoneFilled,
-          hasNextBtn:  !!nextBtn,
+          hasNextBtn: nextBtnVisible,
           companyId,
         };
       },
@@ -2739,7 +2756,27 @@ async function runTestSubmit(tabId, formId, externalResultEl = null) {
             })
             .filter(x => x.visible)
             .sort((a, b) => b.area - a.area)[0]?.el || null;
-        formEl?.querySelector(nextSel)?.click();
+        if (!formEl) return;
+        const isVis = (el) => {
+          let node = el;
+          while (node && node !== document.body) {
+            const s = window.getComputedStyle(node);
+            if (s.display === 'none' || s.visibility === 'hidden') return false;
+            node = node.parentElement;
+          }
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.height > 0;
+        };
+        // Try selector-based first (visible only), then fallback to any visible button
+        const viaSel = Array.from(formEl.querySelectorAll(nextSel)).find(isVis);
+        if (viaSel) { viaSel.click(); return; }
+        const fallback = Array.from(formEl.querySelectorAll('button')).find(b => {
+          if (b.getAttribute('role') === 'combobox') return false;
+          const t = b.textContent.trim().toLowerCase();
+          if (t === 'no thanks' || t === 'no thank you' || t === 'dismiss') return false;
+          return isVis(b);
+        });
+        if (fallback) fallback.click();
       },
       args: [formId, NEXT_BTN_SELECTORS],
     }).catch(() => {});
@@ -2874,14 +2911,15 @@ async function runTestSubmit(tabId, formId, externalResultEl = null) {
       const visiblePrimary = allPrimary.find(isVisible);
       if (visiblePrimary) { visiblePrimary.click(); return; }
 
-      // 2. Fallback: any visible button NOT inside the intl-tel-input country picker
+      // 2. Fallback: any visible button NOT inside the country picker or dismiss
       const allBtns = Array.from(formEl.querySelectorAll(
         'button, input[type="submit"], [role="button"]'
       ));
       const submitBtn = allBtns.find(b => {
         if (b.closest('.iti__flag-container') || b.closest('.iti__selected-flag')) return false;
-        // Use getComputedStyle + getBoundingClientRect — offsetParent is always null
-        // for position:fixed elements (flyout forms), so it can't be used for visibility.
+        if (b.getAttribute('role') === 'combobox') return false;
+        const t = b.textContent.trim().toLowerCase();
+        if (t === 'no thanks' || t === 'no thank you' || t === 'dismiss') return false;
         const s = window.getComputedStyle(b);
         if (s.display === 'none' || s.visibility === 'hidden' || parseFloat(s.opacity) < 0.1) return false;
         const r = b.getBoundingClientRect();
