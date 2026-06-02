@@ -2862,9 +2862,17 @@ async function runTestSubmit(tabId, formId, externalResultEl = null) {
           .sort((a, b) => b.area - a.area)[0]?.el || null;
       if (!formEl) return;
 
-      // 1. Try the final submit selectors (separate from Next-step selectors).
-      const primary = formEl.querySelector(submitSel);
-      if (primary) { primary.click(); return; }
+      // 1. Try the final submit selectors — but only if the matched element is
+      // actually visible. input[type="submit"] is often display:none/0×0 on Klaviyo
+      // forms and clicking it does nothing; we must fall through to the visible button.
+      const isVisible = (el) => {
+        const s = window.getComputedStyle(el);
+        const r = el.getBoundingClientRect();
+        return s.display !== 'none' && s.visibility !== 'hidden' && parseFloat(s.opacity) >= 0.1 && r.width > 0 && r.height > 0;
+      };
+      const allPrimary = Array.from(formEl.querySelectorAll(submitSel));
+      const visiblePrimary = allPrimary.find(isVisible);
+      if (visiblePrimary) { visiblePrimary.click(); return; }
 
       // 2. Fallback: any visible button NOT inside the intl-tel-input country picker
       const allBtns = Array.from(formEl.querySelectorAll(
