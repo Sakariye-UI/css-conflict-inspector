@@ -222,10 +222,17 @@ settingsWrap.addEventListener("toggle", () => {
   chrome.storage.local.set({ klvSettingsOpen: settingsWrap.open });
 });
 
+// ── Clear armed pick mode when panel closes ───────────────
+// If the user armed Pick Element but closed the tab/panel without clicking
+// anything, klvPickMode stays true in storage. On next open the UI would
+// look armed but the crosshair wouldn't work. Wiping it on unload ensures
+// a clean slate every time the panel opens.
+window.addEventListener("unload", () => {
+  chrome.storage.local.remove(["klvPickMode"]);
+});
+
 // ── On load: restore pick state from storage ──────────────
 // Pick results persist until explicitly dismissed or Scan Page is clicked.
-// Pick mode "active" state (crosshair on page) is also persisted so the
-// button shows as a toggle even if the popup was closed and reopened.
 document.addEventListener("DOMContentLoaded", async () => {
   const [tab]  = await chrome.tabs.query({ active: true, currentWindow: true }).catch(() => [null]);
   // Store tabId so content script can pass it back in openPopup messages.
