@@ -1324,7 +1324,7 @@ function renderScriptIssue(issue) {
 function renderConfidence(score) {
   if (!score) return "";
   const dots = Array.from({ length: 5 }, (_, i) =>
-    `<span class="conf-dot ${i < score ? "conf-dot-on" : "conf-dot-off"}">●</span>`
+    `<span class="conf-dot ${i < score ? "conf-dot-on" : "conf-dot-off"}"></span>`
   ).join("");
   const label = score >= 5 ? "Very likely cause" : score >= 4 ? "Likely cause" : score >= 3 ? "Possible cause" : "Worth checking";
   return `<span class="conf-bar" title="Confidence ${score}/5 — ${label}">${dots}</span>`;
