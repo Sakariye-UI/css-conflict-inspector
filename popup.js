@@ -814,7 +814,6 @@ function renderPickComponent(result) {
         ${form.totalIssues > 0 ? `<span class="issue-count-badge">${form.totalIssues} ${issueWord}</span>` : ""}
       </div>
       <div class="form-header-right">
-        <span class="form-tag">${escHtml(form.element)}</span>
         <span class="card-chevron">▾</span>
       </div>
     </summary>
@@ -900,6 +899,11 @@ function renderPickComponent(result) {
   // Preview Fix toggle
   document.querySelectorAll(".btn-preview-fix").forEach(btn => {
     btn.addEventListener("click", () => togglePreviewFix(btn));
+  });
+
+  // Find Source toggle
+  document.querySelectorAll(".btn-find-source").forEach(btn => {
+    btn.addEventListener("click", () => findSource(btn));
   });
 
   // Restore active fix button states on popup reopen
@@ -1136,7 +1140,6 @@ function render(data) {
             <span class="issue-count-badge">${form.totalIssues} ${issueWord}</span>
           </div>
           <div class="form-header-right">
-            <span class="form-tag">${escHtml(form.element)}</span>
             <button class="btn-dismiss-card" data-card-dismiss-key="${cardDismissKey}" title="Hide this component from view (reappears on next scan)">✕</button>
             <span class="card-chevron">▾</span>
           </div>
@@ -1228,6 +1231,11 @@ function render(data) {
   // Preview Fix toggle buttons
   document.querySelectorAll(".btn-preview-fix").forEach(btn => {
     btn.addEventListener("click", () => togglePreviewFix(btn));
+  });
+
+  // Find Source buttons
+  document.querySelectorAll(".btn-find-source").forEach(btn => {
+    btn.addEventListener("click", () => findSource(btn));
   });
 
   // Attach plain-text to copy buttons
@@ -1381,6 +1389,15 @@ function renderIssueWithWhere(issue, whereTag, ctx = {}) {
     ? `<button class="btn-preview-fix" data-fix-id="${issue.fixId}" data-fix-selector="${escHtml(issue.fixSelector || "")}" data-fix-property="${escHtml(issue.property || "")}" title="Temporarily apply fix on page to see if the form appears">👁 Preview Fix</button>`
     : "";
 
+  // "Find Source" button — show for any CSS issue (has a property).
+  // Prefer fixSelector; fall back to the first readable source's selector.
+  const _fsSelector = issue.fixSelector
+    || (issue.sources || []).find(s => !s.crossOrigin && s.selector)?.selector
+    || "";
+  const findSourceBtn = (issue.property && _fsSelector)
+    ? `<button class="btn-find-source" data-fix-selector="${escHtml(_fsSelector)}" data-fix-property="${escHtml(issue.property || "")}" title="Disable stylesheets one by one to confirm which one is causing this conflict">🔍 Find Source</button>`
+    : "";
+
   // Stable key for dismiss persistence (cleared on next Scan Page)
   const firstSrcForKey = (issue.sources || []).find(s => !s.crossOrigin);
   const dismissKey = encodeURIComponent(
@@ -1396,6 +1413,7 @@ function renderIssueWithWhere(issue, whereTag, ctx = {}) {
       </span>
       ${renderConfidence(displayConfidence)}${learnedTag}
       ${fixBtn}
+      ${findSourceBtn}
       <button class="btn-dismiss-issue" data-dismiss-key="${dismissKey}" title="Hide this warning (reappears on next scan)">✕</button>
     </div>`;
 
@@ -1546,57 +1564,42 @@ function buildCustomerMessage(form) {
   if (!grouped.length) return null;
 
   const type  = form.componentType || "component";
-  const count = grouped.length;
   const lines = [];
 
   lines.push("Hi {{ticket.requester.first_name}},");
   lines.push("");
-  lines.push(`Thank you for reaching out. My name is {{current_user.first_name}}. I've taken a look at your site and found the reason your Klaviyo ${type} isn't displaying as expected.`);
+  lines.push("Thanks for reaching out. My name is {{current_user.first_name}}.");
   lines.push("");
-  lines.push(`The ${count === 1 ? "issue is" : `${count} issues are`} caused by CSS rules in your website's theme that are overriding the ${type}'s styles. These rules come from your site's own code rather than from Klaviyo, so your developer or theme provider will need to make a small update to resolve them.`);
+  lines.push(`Support is limited when it comes to custom CSS/theme-level changes. From what I can see, the issue with your Klaviyo ${type} is being caused by CSS in your site's theme overriding the ${type}'s default styling. This is not coming from Klaviyo, so a developer or theme provider will need to adjust it.`);
   lines.push("");
-  lines.push(`Here is the full breakdown to share with your developer:`);
+  lines.push("Here's what's happening:");
 
   grouped.forEach((issue, idx) => {
+    const src = (issue.sources || []).find(s => !s.crossOrigin);
     lines.push("");
-    lines.push(`${"─".repeat(48)}`);
-    lines.push(`Issue ${idx + 1} of ${count}: ${issue.targetSummary}`);
-    lines.push(`${"─".repeat(48)}`);
-    lines.push(`What's wrong:     ${issue.label}${issue.hasImportant ? " (!important)" : ""}`);
-    lines.push(`Impact:           ${issue.explain || ""}`);
 
-    if (issue.domPath) {
-      lines.push(`Element location: ${issue.domPath}`);
-    }
+    // Issue heading — label + explain in one line
+    const explain = issue.explain ? ` ${issue.explain}` : "";
+    lines.push(`Issue ${grouped.length > 1 ? `${idx + 1} — ` : "— "}${issue.label}${issue.hasImportant ? " (!important)" : ""}${explain}`);
 
-    if (issue.sources && issue.sources.length > 0) {
-      issue.sources.filter(s => !s.crossOrigin).slice(0, 1).forEach(src => {
-        lines.push(`Conflicting rule: ${src.selector} { ${issue.property}: ${src.value}${src.important ? " !important" : ""}; }`);
-        lines.push(`Found in file:    ${src.source}`);
-      });
-    }
-
-    const advice = FIX_ADVICE[issue.property];
-    if (advice) {
-      lines.push(`What to do:       ${advice.plain}`);
-      if (advice.fix && issue.sources?.length > 0) {
-        const firstSel = issue.sources.find(s => !s.crossOrigin);
-        if (firstSel) {
-          const suggestion = advice.fix(firstSel.selector);
-          if (suggestion) lines.push(`Suggested CSS fix:\n  ${suggestion}`);
-        }
-      }
+    // Conflicting CSS block
+    if (src) {
+      const important = src.important ? " !important" : "";
+      lines.push("");
+      lines.push("Conflicting CSS:");
+      lines.push("");
+      lines.push("```");
+      lines.push(`${src.selector} {`);
+      lines.push(`  ${issue.property}: ${src.value}${important};`);
+      lines.push(`}`);
+      lines.push("```");
+      lines.push("");
+      lines.push(`Source: ${src.source}`);
     }
   });
 
   lines.push("");
-  lines.push("─".repeat(48));
-  lines.push(`Once your developer has made the above changes, your Klaviyo ${type} should display correctly.`);
-  lines.push("");
-  lines.push("If you're still seeing issues after the changes have been made, please don't hesitate to reply — we're happy to look into this further.");
-  lines.push("");
-  lines.push("Best,");
-  lines.push("Klaviyo Support");
+  lines.push(`Once this CSS is adjusted or scoped properly, the ${type} should display correctly. If the issue continues after that, feel free to reply and we'll take another look.`);
 
   return lines.join("\n");
 }
@@ -1609,41 +1612,27 @@ function renderCustomerMessage(form, formIdx) {
   const count = grouped.length;
 
   let body = `Hi {{ticket.requester.first_name}},\n\n`;
-  body += `Thank you for reaching out. My name is {{current_user.first_name}}. I've reviewed your site and found the reason your Klaviyo <strong>${type}</strong> isn't displaying as expected.\n\n`;
-  body += `The ${count === 1 ? "issue is" : `<strong>${count} issues are</strong>`} caused by CSS rules in your website's theme that are overriding the ${type}'s styles. These rules come from your site's own code — not from Klaviyo — so your developer or theme provider will need to make a small update to resolve them.\n\n`;
-  body += `<strong>Here's the full breakdown to share with your developer:</strong>\n`;
+  body += `Thanks for reaching out. My name is {{current_user.first_name}}.\n\n`;
+  body += `Support is limited when it comes to custom CSS/theme-level changes. From what I can see, the issue with your Klaviyo <strong>${type}</strong> is being caused by CSS in your site's theme overriding the ${type}'s default styling. This is not coming from Klaviyo, so a developer or theme provider will need to adjust it.\n\n`;
+  body += `<strong>Here's what's happening:</strong>\n`;
 
   grouped.forEach((issue, idx) => {
-    const advice = FIX_ADVICE[issue.property];
+    const src = (issue.sources || []).find(s => !s.crossOrigin);
+    const explain = issue.explain ? ` ${escHtml(issue.explain)}` : "";
+
     body += `\n<hr class="msg-divider">`;
-    body += `<span class="msg-section-label">Issue ${idx + 1} of ${count} — ${escHtml(issue.targetSummary)}</span>\n`;
-    body += `<strong>What's wrong:</strong> <code class="msg-issue-badge">${escHtml(issue.label)}${issue.hasImportant ? " !important" : ""}</code>\n`;
-    body += `<strong>Impact:</strong> ${escHtml(issue.explain || "")}\n`;
+    body += `<span class="msg-section-label">Issue${count > 1 ? ` ${idx + 1}` : ""} — ${escHtml(issue.label)}${issue.hasImportant ? " <code>!important</code>" : ""}</span>`;
+    body += `<span class="msg-issue-explain">${explain}</span>\n`;
 
-    if (issue.domPath) {
-      body += `\n<strong>Element location:</strong>\n<span class="msg-code-line msg-path-line">📍 ${escHtml(issue.domPath)}</span>`;
-    }
-
-    if (issue.sources?.length > 0) {
-      issue.sources.filter(s => !s.crossOrigin).slice(0, 1).forEach(src => {
-        body += `\n\n<strong>Conflicting CSS rule:</strong>\n<span class="msg-code-line">${escHtml(src.selector)} { ${escHtml(issue.property)}: ${escHtml(src.value)}${src.important ? " !important" : ""}; }</span>`;
-        body += `\n<strong>Found in file:</strong> <code class="msg-file-badge">${escHtml(src.source)}</code>`;
-      });
-    }
-
-    if (advice) {
-      body += `\n\n<strong>What to do:</strong> ${escHtml(advice.plain)}\n`;
-      if (advice.fix && issue.sources?.length > 0) {
-        const firstSel = issue.sources.find(s => !s.crossOrigin);
-        if (firstSel) {
-          const suggestion = advice.fix(firstSel.selector);
-          if (suggestion) body += `\n<strong>Suggested CSS fix:</strong>\n<span class="msg-fix-line">${escHtml(suggestion)}</span>`;
-        }
-      }
+    if (src) {
+      const important = src.important ? " !important" : "";
+      body += `\n<strong>Conflicting CSS:</strong>\n`;
+      body += `<pre class="msg-code-block">${escHtml(src.selector)} {\n  ${escHtml(issue.property)}: ${escHtml(src.value)}${escHtml(important)};\n}</pre>`;
+      body += `\n<span class="msg-source-line">Source: <code class="msg-file-badge">${escHtml(src.source)}</code></span>`;
     }
   });
 
-  body += `\n<hr class="msg-divider">Once your developer has made the above changes, your Klaviyo ${type} should display correctly.\n\nIf you're still seeing the issue after the changes have been applied, please don't hesitate to reply — we're happy to investigate further.\n\n<strong>Best,\nKlaviyo Support</strong>`;
+  body += `\n<hr class="msg-divider">Once this CSS is adjusted or scoped properly, the ${type} should display correctly. If the issue continues after that, feel free to reply and we'll take another look.`;
 
   return `
     <div class="customer-msg-wrap">
@@ -3755,16 +3744,23 @@ async function togglePreviewFix(btn) {
         if (fixSelector && fixProperty) {
           // Determine the correct override value for this property
           const FIX_VALUES_MAP = {
-            display:          "block",
-            visibility:       "visible",
-            opacity:          "1",
-            "pointer-events": "auto",
-            "max-height":     "none",
-            overflow:         "visible",
-            transform:        "none",
+            display:               "block",
+            visibility:            "visible",
+            opacity:               "1",
+            "pointer-events":      "auto",
+            "pointer-events-off":  "none",
+            "outline-off":         "none",
+            "box-shadow-off":      "none",
+            "background-color":    "transparent",
+            "color":               "inherit",
+            "max-height":          "none",
+            overflow:              "visible",
+            transform:             "none",
           };
+          // Resolve synthetic "-off" keys to their real CSS property name
+          const realProp = fixProperty.endsWith("-off") ? fixProperty.slice(0, -4) : fixProperty;
           const fixValue = FIX_VALUES_MAP[fixProperty] || "initial";
-          const snippet  = `${fixSelector} {\n  ${fixProperty}: ${fixValue} !important;\n}`;
+          const snippet  = `${fixSelector} {\n  ${realProp}: ${fixValue} !important;\n}`;
 
           const snippetEl = document.createElement("div");
           snippetEl.className = "fix-snippet";
@@ -3803,6 +3799,89 @@ async function togglePreviewFix(btn) {
     }
   } catch (err) {
     // If toggle fails, leave button as-is so user can retry
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── FIND SOURCE ──────────────────────────────────────────
+// Sends a disable-test loop to content.js which briefly disables each
+// non-Klaviyo stylesheet and checks if the computed value changes.
+// Reports the confirmed culprit stylesheet and winning CSS rule inline.
+
+async function findSource(btn) {
+  const fixSelector = btn.dataset.fixSelector || "";
+  const fixProperty = btn.dataset.fixProperty || "";
+  if (!fixSelector || !fixProperty) return;
+
+  // Prevent double-clicks
+  btn.disabled = true;
+  btn.textContent = "⏳ Testing…";
+
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    try { await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] }); } catch (_) {}
+
+    const resp = await chrome.tabs.sendMessage(tab.id, { action: "findSource", fixSelector, fixProperty });
+
+    // Remove any existing source-result panel on this issue card first
+    const issueItem = btn.closest(".issue-item");
+    issueItem?.querySelector(".source-result")?.remove();
+
+    if (!resp || !resp.success) {
+      btn.textContent = "🔍 Find Source";
+      btn.disabled = false;
+      return;
+    }
+
+    const { culprits, crossOriginSheets } = resp;
+
+    // Build result panel
+    const panel = document.createElement("div");
+    panel.className = "source-result";
+
+    if (culprits.length === 0 && crossOriginSheets.length === 0) {
+      panel.innerHTML = `<span class="source-result-none">✅ No external stylesheet is overriding this property — the conflict may be from an inline style or script.</span>`;
+    } else {
+      let html = "";
+
+      culprits.forEach(c => {
+        const ruleHtml = c.winningRule
+          ? `<div class="source-rule">
+               <span class="source-rule-selector">${escHtml(c.winningRule.selector)}</span>
+               <span class="source-rule-value">${escHtml(fixProperty)}: ${escHtml(c.winningRule.value)}${c.winningRule.important ? " !important" : ""}</span>
+             </div>`
+          : `<div class="source-rule source-rule-unknown">Rule found but selector couldn't be isolated — open DevTools to inspect ${escHtml(c.filename)}</div>`;
+
+        html += `<div class="source-culprit">
+          <span class="source-confirmed-badge">✅ Confirmed conflict</span>
+          <span class="source-filename">${escHtml(c.filename)}</span>
+          ${ruleHtml}
+        </div>`;
+      });
+
+      if (crossOriginSheets.length > 0) {
+        html += `<div class="source-cross-origin-note">
+          ⚠️ ${crossOriginSheets.length} cross-origin stylesheet${crossOriginSheets.length > 1 ? "s" : ""} couldn't be tested (CORS):
+          ${crossOriginSheets.map(s => `<code>${escHtml(s.filename)}</code>`).join(", ")}
+        </div>`;
+      }
+
+      panel.innerHTML = html;
+    }
+
+    // Insert the panel after the issue-header row
+    const issueHeader = btn.closest(".issue-header");
+    if (issueHeader) {
+      issueHeader.insertAdjacentElement("afterend", panel);
+    } else {
+      btn.insertAdjacentElement("afterend", panel);
+    }
+
+    btn.textContent = "🔍 Find Source";
+    btn.classList.toggle("source-confirmed", culprits.length > 0);
+  } catch (err) {
+    btn.textContent = "🔍 Find Source";
   } finally {
     btn.disabled = false;
   }

@@ -841,7 +841,7 @@ body {
   color: #fcd34d;
 }
 
-/* File badge shown after "Found in file:" */
+/* File badge shown after "Source:" */
 .msg-file-badge {
   display: inline-block;
   background: rgba(99,91,255,0.12);
@@ -852,6 +852,39 @@ body {
   font-size: 10px;
   font-family: "SFMono-Regular", Consolas, monospace;
   word-break: break-all;
+}
+
+/* Fenced code block for conflicting CSS rule */
+.msg-code-block {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 8px 10px;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  font-size: 10.5px;
+  color: #f87171;
+  white-space: pre;
+  word-break: break-all;
+  margin: 5px 0 4px;
+  line-height: 1.6;
+}
+
+/* Issue explain text — sits on its own line after the issue heading */
+.msg-issue-explain {
+  display: block;
+  font-size: 11.5px;
+  color: var(--text-sub);
+  margin-top: 3px;
+  line-height: 1.5;
+}
+
+/* "Source: filename" line */
+.msg-source-line {
+  display: block;
+  font-size: 11px;
+  color: var(--text-sub);
+  margin-top: 3px;
 }
 
 /* ══ MOBILE PREVIEW BAR ══ */
@@ -1261,6 +1294,95 @@ body[data-theme="light"] .mob-device-btn.mob-device-active { background: #ede9ff
 }
 .fix-snippet-copy:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
 
+/* ── Find Source button ── */
+.btn-find-source {
+  display: inline-flex; align-items: center; gap: 3px;
+  margin-left: 4px; flex-shrink: 0;
+  background: rgba(56, 189, 248, 0.08); border: 1px solid rgba(56, 189, 248, 0.25);
+  color: #7dd3fc; border-radius: 5px; padding: 0 8px;
+  height: 20px; font-size: 10px; font-weight: 600; cursor: pointer;
+  font-family: inherit; transition: background 0.15s; white-space: nowrap;
+  box-sizing: border-box;
+}
+.btn-find-source:hover  { background: rgba(56, 189, 248, 0.18); border-color: #38bdf8; }
+.btn-find-source:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-find-source.source-confirmed { background: rgba(52, 211, 153, 0.12); border-color: rgba(52,211,153,0.35); color: #6ee7b7; }
+
+/* ── Source result panel ── */
+.source-result {
+  margin-top: 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11.5px;
+}
+.source-result-none {
+  color: var(--green);
+  font-size: 11px;
+}
+.source-culprit {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.source-confirmed-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #6ee7b7;
+  letter-spacing: 0.02em;
+}
+.source-filename {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 11px;
+  color: var(--text-sub);
+  word-break: break-all;
+}
+.source-rule {
+  margin-top: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.source-rule-selector {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 10.5px;
+  color: #a78bfa;
+  word-break: break-all;
+}
+.source-rule-value {
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  font-size: 10.5px;
+  color: var(--red, #f87171);
+}
+.source-rule-unknown {
+  color: var(--text-sub);
+  font-style: italic;
+  font-size: 10.5px;
+}
+.source-cross-origin-note {
+  font-size: 10.5px;
+  color: var(--yellow, #fbbf24);
+  border-top: 1px solid var(--border);
+  padding-top: 5px;
+  margin-top: 2px;
+  line-height: 1.5;
+}
+.source-cross-origin-note code {
+  background: var(--surface);
+  border-radius: 3px;
+  padding: 0 3px;
+  font-size: 10px;
+  color: var(--text-sub);
+}
+
 /* ── Feedback learned badge ── */
 .fb-learned-badge {
   font-size: 10px;
@@ -1358,9 +1480,10 @@ body[data-theme="light"] .mob-device-btn.mob-device-active { background: #ede9ff
   display: inline-flex; align-items: center; gap: 3px;
   margin-left: auto; flex-shrink: 0;
   background: var(--accent-soft); border: 1px solid rgba(99,91,255,0.3);
-  color: #a5b4fc; border-radius: 5px; padding: 2px 8px;
-  font-size: 10px; font-weight: 600; cursor: pointer;
+  color: #a5b4fc; border-radius: 5px; padding: 0 8px;
+  height: 20px; font-size: 10px; font-weight: 600; cursor: pointer;
   font-family: inherit; transition: background 0.15s; white-space: nowrap;
+  box-sizing: border-box;
 }
 .btn-preview-fix:hover  { background: rgba(99,91,255,0.25); border-color: var(--accent); }
 .btn-preview-fix.fix-active { background: var(--yellow-soft); color: var(--yellow); border-color: rgba(251,191,36,0.4); }

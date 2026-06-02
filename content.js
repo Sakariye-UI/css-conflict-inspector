@@ -619,6 +619,12 @@
     "filter": "none",
     "color": "inherit",
     "background-color": "transparent",
+    // Synthetic "-off" keys: the suffix is stripped in toggleFix so the real
+    // CSS property name is used, but the value is set to "none" instead of
+    // the default. Used for overlapping elements and focus-ring removal.
+    "pointer-events-off": "none",
+    "outline-off":        "none",
+    "box-shadow-off":     "none",
   };
 
   // Build a querySelector-compatible selector for an element so the popup can
@@ -1175,6 +1181,7 @@
 
       const fixSuggestion = `.klaviyo-form-button { ${kebab}: ${klaviyoIntended} !important; }`;
 
+      const btnFixId = _regFix(btn, kebab);
       issues.push({
         severity:       "warning",
         label,
@@ -1187,7 +1194,8 @@
         confidence:     4,
         hasImportant:   siteSources.some(s => s.important),
         themeMatch:     null,
-        fixId:          null,
+        fixId:          btnFixId,
+        fixSelector:    _fixReg.get(btnFixId)?.sel || "",
         domPath:        getDomBreadcrumb(btn),
       });
     }
@@ -1244,7 +1252,8 @@
             confidence:      4,
             hasImportant:    false,
             themeMatch:      null,
-            fixId:           null,
+            fixId:           _regFix(btn, prop === "outline" ? "outline-off" : "box-shadow-off"),
+            fixSelector:     _fixReg.get(_fixId)?.sel || "",
             domPath:         getDomBreadcrumb(btn),
           });
         }
@@ -1457,6 +1466,101 @@
     return issues;
   }
 
+  // ── 7e. CLOSE BUTTON BACKGROUND COLOUR CONFLICT DETECTION ──
+  // Detects when external CSS sets background-color (or similar visual
+  // styling) on Klaviyo private class selectors, causing the close button
+  // to render with the site's theme colour instead of transparent/white.
+  //
+  // Real-world example: helan.com inline <style> block sets
+  //   button.needsclick.kl-private-reset-css-Xuajs1 {
+  //     background: rgb(0, 99, 72) !important; ...
+  //   }
+  // Because Klaviyo's close button carries .needsclick and
+  // kl-private-reset-css-Xuajs1, the site's button colour rule bleeds
+  // onto it — rendering a dark green pill instead of a transparent circle.
+
+  function checkCloseButtonStyleConflict(formEl) {
+    const issues = [];
+    try {
+      const closeBtn = formEl.querySelector(".klaviyo-close-form");
+      if (!closeBtn) return issues;
+
+      const STYLE_PROPS = ["background-color", "background", "color", "border", "border-radius", "padding", "width", "height", "min-width", "min-height"];
+      const KLV_PRIVATE_SELECTORS = ["kl-private-reset-css-Xuajs1", "klaviyo-close-form", "needsclick"];
+
+      const conflictingSources = [];
+      for (const sheet of Array.from(document.styleSheets)) {
+        let rules;
+        try { rules = Array.from(sheet.cssRules || []); } catch (_e) { continue; }
+        const href = sheet.href || "inline";
+        if (href.includes("klaviyo")) continue;
+        for (const rule of rules) {
+          try {
+            if (!rule.selectorText || rule.type !== 1) continue;
+            const sel = rule.selectorText;
+            if (!KLV_PRIVATE_SELECTORS.some(c => sel.includes(c))) continue;
+            if (/\.go\d{5,}/.test(sel)) continue;
+            for (const prop of STYLE_PROPS) {
+              const val = rule.style.getPropertyValue(prop);
+              if (!val) continue;
+              const isImportant = rule.style.getPropertyPriority(prop) === "important";
+              conflictingSources.push({
+                source:    href.split("/").pop().split("?")[0].slice(0, 60) || "inline <style>",
+                selector:  sel.slice(0, 140),
+                property:  prop,
+                value:     val,
+                important: isImportant,
+              });
+            }
+          } catch (_e) {}
+        }
+      }
+
+      // Visual check: does the close button have a non-transparent background?
+      let hasUnexpectedBackground = false;
+      let computedBg = "";
+      try {
+        computedBg = window.getComputedStyle(closeBtn).backgroundColor;
+        const TRANSPARENT = new Set(["transparent", "rgba(0, 0, 0, 0)", "rgba(0,0,0,0)", ""]);
+        if (!TRANSPARENT.has(computedBg)) hasUnexpectedBackground = true;
+      } catch (_e) {}
+
+      if (conflictingSources.length === 0 && !hasUnexpectedBackground) return issues;
+
+      const worstSrc = conflictingSources.find(s => s.property === "background" || s.property === "background-color") || conflictingSources[0];
+      const matchedClass = worstSrc ? KLV_PRIVATE_SELECTORS.find(c => worstSrc.selector.includes(c)) : "";
+
+      const explain = worstSrc
+        ? `A site stylesheet applies \`${worstSrc.property}: ${worstSrc.value}${worstSrc.important ? " !important" : ""}\` via the selector \`${worstSrc.selector}\`. ` +
+          `Because Klaviyo's close button carries the \`${matchedClass}\` class, this rule bleeds onto it — ` +
+          `causing it to render with the site's theme colour instead of the transparent background Klaviyo intends.`
+        : `The close (✕) button has an unexpected background colour (${computedBg}). A site CSS rule targeting one of Klaviyo's private class selectors is overriding its appearance.`;
+
+      const fixSuggestion = worstSrc
+        ? `/* Remove or scope the conflicting rule:\n   File: ${worstSrc.source}\n   Selector: ${worstSrc.selector}\n   Property: ${worstSrc.property}: ${worstSrc.value}${worstSrc.important ? " !important" : ""} */\n\n/* Or target only the close button specifically: */\n.klaviyo-close-form {\n  background: none !important;\n  background-color: transparent !important;\n}`
+        : `.klaviyo-close-form {\n  background: none !important;\n  background-color: transparent !important;\n}`;
+
+      const closeBtnFixId = _regFix(closeBtn, "background");
+      issues.push({
+        severity:        "warning",
+        label:           "Close (✕) button colour overridden by site CSS",
+        explain,
+        property:        "background",
+        computedValue:   computedBg || window.getComputedStyle(closeBtn).backgroundColor,
+        klaviyoIntended: "transparent / none",
+        fixSuggestion,
+        sources:         conflictingSources,
+        confidence:      conflictingSources.length > 0 ? (conflictingSources.some(s => s.important) ? 5 : 4) : 3,
+        hasImportant:    conflictingSources.some(s => s.important),
+        themeMatch:      null,
+        fixId:           closeBtnFixId,
+        fixSelector:     _fixReg.get(closeBtnFixId)?.sel || ".klaviyo-close-form",
+        domPath:         getDomBreadcrumb(closeBtn),
+      });
+    } catch (_) {}
+    return issues;
+  }
+
   // ── 8. MAIN ANALYSIS ──────────────────────────────────────
 
   // ── Per-component deep analysis ────────────────────────────
@@ -1467,6 +1571,7 @@
     const containerIssues = [
       ...checkElement(el),
       ...checkCloseButtonZIndexConflict(el),
+      ...checkCloseButtonStyleConflict(el),
     ];
 
     // Step 7: iframe context warning
@@ -1553,12 +1658,13 @@
                 severity:      "warning",
                 label:         `Overlapping element covering form — ${describeEl(topEl)}`,
                 explain:       `At the center of this Klaviyo component, the topmost visible element is ${describeEl(topEl)}, which is not part of the form. This element may be intercepting clicks and preventing users from interacting with the form.`,
-                property:      "z-index",
+                property:      "pointer-events-off",
                 computedValue: topStyle.zIndex,
                 sources:       [],
                 confidence:    3,
                 themeMatch:    null,
-                fixId:         null,
+                fixId:         _regFix(topEl, "pointer-events-off"),
+                fixSelector:   _getFixSelector(topEl),
                 domPath:       getDomBreadcrumb(topEl),
               });
             }
@@ -2084,6 +2190,101 @@
       stopPickMode();
       sendResponse({ success: true });
     }
+    if (request.action === "findSource") {
+      // ── Stylesheet disable-test: find which non-Klaviyo sheet is winning the
+      // cascade for a given CSS property on a given element selector.
+      // We briefly disable each candidate sheet, check if the computed value
+      // changes, then re-enable. Body visibility is hidden during the loop
+      // so the user doesn't see flicker.
+      (async () => {
+        const { fixSelector, fixProperty } = request;
+        const el = document.querySelector(fixSelector);
+        if (!el) { sendResponse({ success: false, error: "Element not found" }); return; }
+
+        const isKlaviyoSheet = (sheet) => {
+          if (!sheet.href) {
+            try {
+              const text = [...(sheet.cssRules || [])].map(r => r.cssText).join(" ");
+              return /\.go\d{5,}|kl-private-reset|klaviyo/i.test(text);
+            } catch (_) { return false; }
+          }
+          return sheet.href.includes("klaviyo");
+        };
+
+        const baseline = window.getComputedStyle(el).getPropertyValue(fixProperty).trim();
+        const sheets   = [...document.styleSheets];
+        const culprits = [];
+
+        // Hide body to suppress visual flicker during test loop
+        const prevVis = document.body.style.visibility;
+        document.body.style.visibility = "hidden";
+
+        try {
+          for (const sheet of sheets) {
+            if (isKlaviyoSheet(sheet)) continue;
+            try { sheet.disabled = true; } catch (_) { continue; }
+
+            const afterVal = window.getComputedStyle(el).getPropertyValue(fixProperty).trim();
+            const changed  = afterVal !== baseline;
+
+            sheet.disabled = false;
+
+            if (changed) {
+              // Try to find the specific winning rule inside this sheet
+              let winningRule = null;
+              try {
+                for (const rule of [...(sheet.cssRules || [])]) {
+                  if (!rule.selectorText || !rule.style) continue;
+                  if (!rule.style.getPropertyValue(fixProperty)) continue;
+                  try {
+                    if (el.matches(rule.selectorText)) {
+                      winningRule = {
+                        selector:  rule.selectorText,
+                        value:     rule.style.getPropertyValue(fixProperty),
+                        important: rule.style.getPropertyPriority(fixProperty) === "important",
+                        fullRule:  rule.cssText.slice(0, 300),
+                      };
+                      break;
+                    }
+                  } catch (_) {}
+                }
+              } catch (_) {}
+
+              culprits.push({
+                sheetIndex:  sheets.indexOf(sheet),
+                href:        sheet.href || null,
+                filename:    sheet.href
+                               ? new URL(sheet.href).pathname.split("/").pop()
+                               : "inline <style>",
+                crossOrigin: false,
+                winningRule,
+              });
+            }
+          }
+        } finally {
+          document.body.style.visibility = prevVis;
+        }
+
+        // Cross-origin sheets can't be disabled-tested, but flag them as
+        // potential blind spots in the result
+        const crossOriginSheets = sheets
+          .filter(s => {
+            if (isKlaviyoSheet(s)) return false;
+            try { void s.cssRules; return false; } catch (_) { return true; }
+          })
+          .map(s => ({
+            href:        s.href || null,
+            filename:    s.href
+                           ? new URL(s.href).pathname.split("/").pop()
+                           : "inline <style>",
+            crossOrigin: true,
+          }));
+
+        sendResponse({ success: true, culprits, crossOriginSheets, baseline, fixProperty, fixSelector });
+      })();
+      return true;
+    }
+
     if (request.action === "toggleFix") {
       try {
         let fix = _fixReg.get(request.fixId);
@@ -2103,20 +2304,26 @@
         if (!fix) { sendResponse({ success: false, error: "Fix not found" }); return true; }
 
         if (!fix.active) {
-          // Save existing inline value and apply override
+          // Resolve real CSS property (synthetic keys like "pointer-events-off"
+          // map to "pointer-events" but with a different target value)
+          const realProp = fix.property.endsWith("-off")
+            ? fix.property.slice(0, -4)
+            : fix.property;
           fix.orig = {
-            value:    fix.el.style.getPropertyValue(fix.property),
-            priority: fix.el.style.getPropertyPriority(fix.property),
+            value:    fix.el.style.getPropertyValue(realProp),
+            priority: fix.el.style.getPropertyPriority(realProp),
+            realProp,
           };
           const goodVal = _FIX_VALUES[fix.property] || "initial";
-          fix.el.style.setProperty(fix.property, goodVal, "important");
+          fix.el.style.setProperty(realProp, goodVal, "important");
           fix.active = true;
           sendResponse({ success: true, active: true });
         } else {
           // Restore
-          fix.el.style.removeProperty(fix.property);
+          const realProp = fix.orig?.realProp || fix.property;
+          fix.el.style.removeProperty(realProp);
           if (fix.orig && fix.orig.value) {
-            fix.el.style.setProperty(fix.property, fix.orig.value, fix.orig.priority);
+            fix.el.style.setProperty(realProp, fix.orig.value, fix.orig.priority);
           }
           fix.active = false;
           sendResponse({ success: true, active: false });

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "CSS Conflict Inspector",
-  "version": "1.8.5",
+  "version": "2.0.0",
   "description": "Detect which CSS rules on a page are breaking or hiding Klaviyo signup forms, review widgets, and customer agent components.",
   "permissions": ["activeTab", "scripting", "storage", "sidePanel", "debugger", "tabs"],
   "host_permissions": ["https://a.klaviyo.com/*", "<all_urls>"],
